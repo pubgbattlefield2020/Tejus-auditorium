@@ -4,16 +4,14 @@ import { formatDateReadable, formatTime12Hour, getTodayISTString } from './time-
 export type GoogleSheetSyncAction = 'CREATE' | 'UPDATE' | 'CANCEL' | 'DELETE' | 'RESTORE' | 'PERMANENT_DELETE';
 
 /**
- * Syncs a booking record to Google Sheets via Google Apps Script Webhook.
- * Runs in the background (fire-and-forget) to ensure zero UI delay.
+ * Syncs a booking record to Google Sheets via server-side API route.
+ * Runs in the background (fire-and-forget) with zero UI lag.
  */
 export async function syncBookingToGoogleSheets(
   action: GoogleSheetSyncAction,
   booking: Partial<Booking>
 ): Promise<boolean> {
-  const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL;
-  if (!webhookUrl || !booking.booking_id) {
-    // If webhook URL is not configured yet, skip quietly
+  if (!booking.booking_id) {
     return false;
   }
 
@@ -64,17 +62,16 @@ export async function syncBookingToGoogleSheets(
       }),
     };
 
-    // Send POST request with text/plain or json
-    await fetch(webhookUrl, {
+    // Primary: Call local Next.js server proxy
+    const res = await fetch('/api/sync-sheets', {
       method: 'POST',
       headers: {
-        'Content-Type': 'text/plain;charset=utf-8',
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
-      mode: 'no-cors', // Google Apps Script Web App redirects return opaque responses
     });
 
-    return true;
+    return res.ok;
   } catch (err) {
     console.warn('Google Sheets background sync notice:', err);
     return false;
@@ -85,19 +82,14 @@ export async function syncBookingToGoogleSheets(
  * Bulk syncs all active and trashed bookings to Google Sheets.
  */
 export async function syncAllBookingsToGoogleSheets(bookings: Booking[]): Promise<{ success: boolean; count: number }> {
-  const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL;
-  if (!webhookUrl) {
-    return { success: false, count: 0 };
-  }
-
   let successCount = 0;
   for (const b of bookings) {
     const action = b.deleted_at ? 'DELETE' : b.status === 'Cancelled' ? 'CANCEL' : 'UPDATE';
     const ok = await syncBookingToGoogleSheets(action, b);
     if (ok) successCount++;
     // Small delay between rows to avoid rate limits
-    await new Promise((r) => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 150));
   }
 
-  return { success: true, count: successCount };
+  return { success: successCount > 0, count: successCount };
 }

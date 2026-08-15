@@ -1,25 +1,20 @@
 # 📊 Google Sheets Live Sync Setup Guide for Tejus Auditorium
 
-Follow these simple 3-minute steps to link your Google Sheet with the Tejus Auditorium Booking System. Every booking created, edited, cancelled, or moved to trash will automatically sync to your Google Sheet in real-time!
+Follow these simple steps to ensure your Google Sheet receives live booking updates from Tejus Auditorium.
 
 ---
 
-## 🚀 Step 1: Create a Google Sheet
+## 🔑 Crucial Step: Authorize Google Apps Script
 
-1. Go to [Google Sheets](https://sheets.google.com) and create a **Blank spreadsheet**.
-2. Rename the spreadsheet to: **`Tejus Auditorium — Live Bookings`**.
+Google requires you to grant permission once so the script can write to your Google Sheet:
 
----
-
-## 📝 Step 2: Add the Google Apps Script
-
-1. In your Google Sheet, click **Extensions** in the top menu and select **Apps Script**.
-2. Delete any existing code in the editor, and **paste the following script completely**:
+1. Open your **Google Sheet** (e.g. `Tejus Auditorium — Live Bookings`).
+2. Click **Extensions** ➔ **Apps Script**.
+3. Replace the entire code with the updated script below:
 
 ```javascript
 /**
  * 🏛️ Tejus Auditorium — Live Booking Sync Webhook
- * Automatically handles Insert, Update, Cancellation, and Soft-Deletion (Trash)
  */
 
 function doPost(e) {
@@ -31,7 +26,7 @@ function doPost(e) {
     var data = JSON.parse(rawData);
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
 
-    // 1. Initialize Headers if sheet is empty
+    // 1. Initialize Headers if empty
     initHeaders(sheet);
 
     var bookingId = String(data.booking_id || '').trim();
@@ -54,9 +49,9 @@ function doPost(e) {
       data.ac_type || '',
       data.waste_cleaning || '',
       data.referred_by || '',
-      data.total_amount || 0,
-      data.advance_amount || 0,
-      data.pending_amount || 0,
+      Number(data.total_amount || 0),
+      Number(data.advance_amount || 0),
+      Number(data.pending_amount || 0),
       data.status || 'Confirmed',
       data.booking_date || '',
       data.last_updated_ist || ''
@@ -101,33 +96,17 @@ function doPost(e) {
 function initHeaders(sheet) {
   if (sheet.getLastRow() === 0) {
     var headers = [
-      'Booking ID',
-      'Receipt No',
-      'Customer Name',
-      'Mobile Phone',
-      'Address / Place',
-      'Event Date',
-      'Timings',
-      'Slot Period',
-      'Programme Type',
-      'Auditorium Area',
-      'AC Option',
-      'Waste Cleaning',
-      'Referred By',
-      'Total Amount (₹)',
-      'Advance Paid (₹)',
-      'Pending Balance (₹)',
-      'Booking Status',
-      'Booking Date',
-      'Last Updated (IST)'
+      'Booking ID', 'Receipt No', 'Customer Name', 'Mobile Phone', 'Address / Place',
+      'Event Date', 'Timings', 'Slot Period', 'Programme Type', 'Auditorium Area',
+      'AC Option', 'Waste Cleaning', 'Referred By', 'Total Amount (₹)', 'Advance Paid (₹)',
+      'Pending Balance (₹)', 'Booking Status', 'Booking Date', 'Last Updated (IST)'
     ];
 
     sheet.appendRow(headers);
 
-    // Format Header Row
     var headerRange = sheet.getRange(1, 1, 1, headers.length);
-    headerRange.setBackground('#1E3A8A'); // Dark Blue
-    headerRange.setFontColor('#FFFFFF'); // White Text
+    headerRange.setBackground('#1E3A8A');
+    headerRange.setFontColor('#FFFFFF');
     headerRange.setFontWeight('bold');
     headerRange.setFontSize(10);
     headerRange.setHorizontalAlignment('center');
@@ -137,52 +116,80 @@ function initHeaders(sheet) {
 
 function applyRowStyle(sheet, rowIndex, status) {
   var rowRange = sheet.getRange(rowIndex, 1, 1, 19);
-  var statusCell = sheet.getRange(rowIndex, 17); // Column 17 is Booking Status
+  var statusCell = sheet.getRange(rowIndex, 17);
 
   if (status === 'Deleted (Trash)' || status === 'Permanently Deleted') {
-    rowRange.setBackground('#FEE2E2'); // Soft red
+    rowRange.setBackground('#FEE2E2');
     statusCell.setFontColor('#991B1B');
     statusCell.setFontWeight('bold');
   } else if (status === 'Cancelled') {
-    rowRange.setBackground('#FEF3C7'); // Soft amber
+    rowRange.setBackground('#FEF3C7');
     statusCell.setFontColor('#92400E');
     statusCell.setFontWeight('bold');
   } else if (status === 'Confirmed') {
     rowRange.setBackground('#FFFFFF');
-    statusCell.setFontColor('#065F46'); // Green
+    statusCell.setFontColor('#065F46');
     statusCell.setFontWeight('bold');
-  } else {
-    rowRange.setBackground('#FFFFFF');
-    statusCell.setFontColor('#1E293B');
   }
-
-  // Format currency columns (14, 15, 16)
   sheet.getRange(rowIndex, 14, 1, 3).setNumberFormat('₹ #,##0');
+}
+
+/**
+ * 🧪 Test & Authorize function (Run this once in Apps Script to grant permissions!)
+ */
+function testSync() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  initHeaders(sheet);
+  var mockEvent = {
+    postData: {
+      contents: JSON.stringify({
+        booking_id: 'TA-TEST-001',
+        receipt_no: 'RC-TEST-001',
+        customer_name: 'Test Customer',
+        customer_phone: '9447241559',
+        customer_address: 'Kochi',
+        programme_date: '2026-08-20',
+        timings: '9:00 AM – 1:00 PM',
+        slot_period: 'Morning',
+        programme_type: 'Wedding Reception',
+        auditorium_area: 'Full Auditorium',
+        ac_type: 'AC',
+        waste_cleaning: 'Yes',
+        referred_by: 'Self',
+        total_amount: 25000,
+        advance_amount: 5000,
+        pending_amount: 20000,
+        status: 'Confirmed',
+        booking_date: '2026-08-16',
+        last_updated_ist: new Date().toLocaleString()
+      })
+    }
+  };
+  doPost(mockEvent);
 }
 ```
 
 ---
 
-## 🌐 Step 3: Deploy as Web App
+## ⚡ How to Authorize & Test (1 Click):
 
-1. In the top-right of Apps Script editor, click **Deploy** ➔ **New deployment**.
-2. Click the ⚙️ gear icon next to "Select type" and choose **Web app**.
-3. Set the following settings:
-   - **Description**: `Tejus Auditorium Booking Sync`
-   - **Execute as**: `Me (your email)`
-   - **Who has access**: `Anyone` *(Crucial so Vercel can post updates)*
-4. Click **Deploy**.
-5. Copy the **Web App URL** (it looks like `https://script.google.com/macros/s/AKfycb.../exec`).
+1. In the Apps Script toolbar, make sure **`testSync`** is selected in the function dropdown (next to *Debug*).
+2. Click **Run** ▶️.
+3. Google will show **"Authorization required"**:
+   - Click **Review permissions**.
+   - Choose your Google account.
+   - Click **Advanced** ➔ **Go to Untitled project (unsafe)**.
+   - Click **Allow**.
+4. Check your Google Sheet: The **Blue Header Row** and a test row will immediately appear! (You can delete the test row).
 
 ---
 
-## 🔑 Step 4: Add URL to Vercel
+## 🌐 Deploy as Web App
 
-1. Open your **Vercel Project Dashboard**.
-2. Go to **Settings** ➔ **Environment Variables**.
-3. Add a new variable:
-   - **Key**: `NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL`
-   - **Value**: *(Paste the Google Web App URL from Step 3)*
-4. Click **Save** and **Redeploy**.
-
-🎉 That's it! Every new booking, edit, cancellation, or trash action will now update your Google Sheet in real-time!
+1. Click **Deploy** ➔ **Manage deployments** (or **New deployment**).
+2. Click ✏️ **Edit** (or create new version).
+3. Set **Who has access** to **`Anyone`**.
+4. Click **Deploy** and copy your Web App URL.
+5. In **Vercel Project Settings > Environment Variables**, ensure:
+   - `NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL` = *(Your Web App URL)*
+6. In your live admin panel, click **Google Sheets** in the header to sync all bookings!
