@@ -132,13 +132,6 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
     };
   };
 
-  const handleDateClick = (dateStr: string) => {
-    if (isAdmin) {
-      setSelectedAdminDate(dateStr);
-      setIsAdminDrawerOpen(true);
-    }
-  };
-
   const handleMonthCardClick = (monthIndex: number) => {
     if (onMonthClick) {
       onMonthClick(year, monthIndex);
@@ -198,11 +191,9 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
             <h2 className="text-xl sm:text-3xl font-extrabold tracking-tight text-slate-900 font-mono">
               {year}
             </h2>
-            {!isAdmin && (
-              <p className="text-[10px] text-blue-600 font-medium mt-0.5">
-                Tap any month for full calendar view
-              </p>
-            )}
+            <p className="text-[10px] text-blue-600 font-medium mt-0.5">
+              Tap any month for full calendar view
+            </p>
           </div>
 
           <button
@@ -229,27 +220,16 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
               return (
                 <div
                   key={name}
-                  onClick={() => !isAdmin && handleMonthCardClick(index)}
-                  className={`bg-white/95 rounded-xl sm:rounded-2xl p-1.5 sm:p-3 border border-slate-200/80 shadow-2xs flex flex-col justify-between transition-all ${
-                    !isAdmin
-                      ? 'cursor-pointer hover:border-blue-400 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] group'
-                      : ''
-                  }`}
-                  title={!isAdmin ? `Click to view full ${fullName} calendar` : undefined}
+                  onClick={() => handleMonthCardClick(index)}
+                  className="bg-white/95 rounded-xl sm:rounded-2xl p-1.5 sm:p-3 border border-slate-200/80 shadow-2xs flex flex-col justify-between transition-all cursor-pointer hover:border-blue-400 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] group"
+                  title={`Click to view full ${fullName} calendar`}
                 >
                   {/* Month Header */}
                   <div className="flex items-center justify-center gap-1 mb-1">
-                    <h3
-                      onClick={() => isAdmin && onMonthClick && onMonthClick(year, index)}
-                      className={`text-center font-bold text-[11px] sm:text-sm text-slate-900 transition-colors ${
-                        !isAdmin ? 'group-hover:text-blue-600' : 'cursor-pointer hover:text-blue-600'
-                      }`}
-                    >
+                    <h3 className="text-center font-bold text-[11px] sm:text-sm text-slate-900 group-hover:text-blue-600 transition-colors">
                       {name}
                     </h3>
-                    {!isAdmin && (
-                      <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all hidden sm:inline" />
-                    )}
+                    <ArrowUpRight className="w-3 h-3 text-slate-400 group-hover:text-blue-600 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all hidden sm:inline" />
                   </div>
 
                   {/* Weekday Row (M T W T F S S) */}
@@ -279,32 +259,22 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
 
                       let cellBg = 'bg-transparent text-slate-700 hover:bg-slate-100';
                       if (availability.status === 'fully_booked') {
-                        cellBg = 'bg-[#EF4444] text-white font-bold rounded-sm shadow-2xs hover:bg-[#DC2626]';
+                        cellBg = 'bg-[#EF4444] text-white font-bold rounded-sm shadow-2xs';
                       } else if (availability.status === 'single_slot') {
-                        cellBg = 'bg-[#FBBF24] text-slate-900 font-bold rounded-sm shadow-2xs hover:bg-[#F59E0B]';
+                        cellBg = 'bg-[#FBBF24] text-slate-900 font-bold rounded-sm shadow-2xs';
                       }
 
                       return (
-                        <button
+                        <div
                           key={cell.dateStr}
-                          type="button"
-                          onClick={(e) => {
-                            if (isAdmin) {
-                              e.stopPropagation();
-                              handleDateClick(cell.dateStr);
-                            }
-                          }}
-                          className={`w-full aspect-square text-[8px] sm:text-[11px] font-semibold flex items-center justify-center transition-all select-none ${cellBg} ${
-                            isAdmin ? 'cursor-pointer' : 'pointer-events-none'
-                          } ${
+                          className={`w-full aspect-square text-[8px] sm:text-[11px] font-semibold flex items-center justify-center transition-all select-none pointer-events-none ${cellBg} ${
                             isToday && availability.status === 'available'
                               ? 'border border-blue-600 text-blue-600 font-bold'
                               : ''
                           } ${dayOfWeek === 6 && availability.status === 'available' ? 'text-red-500 font-medium' : ''}`}
-                          title={`${cell.dateStr}: ${availability.status}`}
                         >
                           {cell.day}
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
