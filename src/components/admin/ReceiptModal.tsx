@@ -47,6 +47,26 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
+        windowWidth: 800,
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.querySelector('.receipt-container') as HTMLElement;
+          if (el) {
+            el.style.width = '750px';
+            el.style.maxWidth = '750px';
+            el.style.margin = '0 auto';
+            el.style.padding = '36px';
+            el.style.boxSizing = 'border-box';
+
+            // Ensure grid layouts format in clean multi-column desktop style on all devices
+            const grids = el.querySelectorAll('.grid');
+            grids.forEach((g) => {
+              if (g.classList.contains('sm:grid-cols-3')) {
+                g.classList.remove('grid-cols-1', 'grid-cols-2');
+                g.classList.add('grid-cols-3');
+              }
+            });
+          }
+        },
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -56,11 +76,13 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
         format: 'a4',
       });
 
-      const imgWidth = 210;
-      const pageHeight = 295;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const margin = 10;
+      const contentWidth = pdfWidth - margin * 2; // 190 mm
+      const contentHeight = (canvas.height * contentWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, Math.min(pageHeight, imgHeight));
+      pdf.addImage(imgData, 'PNG', margin, margin, contentWidth, Math.min(pdfHeight - margin * 2, contentHeight));
       pdf.save(`Tejus_Receipt_${receiptNo}.pdf`);
 
       await supabase.from('activity_logs').insert({
