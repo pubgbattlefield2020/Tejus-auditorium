@@ -1,0 +1,11 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://stizrhatmhniurlugusu.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN0aXpyaGF0bWhuaXVybHVndXN1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODY3NzE2OTEsImV4cCI6MjEwMjM0NzY5MX0.H9Fa65IJrG2hLO5XWWrIpHEiM-8gpyznsBi3tZl-Oqc';
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  },
+});

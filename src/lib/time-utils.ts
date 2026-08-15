@@ -1,0 +1,258 @@
+import { SlotPeriod } from '@/types';
+
+/**
+ * Converts HH:mm or HH:mm:ss string to minutes from midnight
+ */
+export function timeToMinutes(timeStr: string): number {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':');
+  const hours = parseInt(parts[0], 10) || 0;
+  const minutes = parseInt(parts[1], 10) || 0;
+  return hours * 60 + minutes;
+}
+
+/**
+ * Converts minutes from midnight to HH:mm string (24-hour for internal DB format)
+ */
+export function minutesToTimeString(minutes: number): string {
+  const normalized = Math.max(0, Math.min(1439, minutes));
+  const hours = Math.floor(normalized / 60);
+  const mins = normalized % 60;
+  return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Converts 12-hour components (hour 1-12, minute, 'AM'|'PM') to 24-hour HH:mm
+ */
+export function convert12to24(hour12: number, minute: number, ampm: 'AM' | 'PM'): string {
+  let h = hour12 % 12;
+  if (ampm === 'PM') h += 12;
+  return `${h.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Converts 24-hour HH:mm to 12-hour components
+ */
+export function convert24to12(time24: string): { hour: number; minute: number; ampm: 'AM' | 'PM' } {
+  if (!time24) return { hour: 9, minute: 0, ampm: 'AM' };
+  const parts = time24.split(':');
+  let h = parseInt(parts[0], 10) || 0;
+  const m = parseInt(parts[1], 10) || 0;
+  const ampm: 'AM' | 'PM' = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return { hour: h, minute: m, ampm };
+}
+
+/**
+ * Formats time string (HH:mm or HH:mm:ss) into 12-hour format (e.g. 10:00 AM)
+ */
+export function formatTime12Hour(timeStr: string): string {
+  if (!timeStr) return '';
+  const parts = timeStr.split(':');
+  let hours = parseInt(parts[0], 10) || 0;
+  const minutes = parts[1] ? parts[1].padStart(2, '0') : '00';
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // '0' should be '12'
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+/**
+ * Determines Slot Period based on Programme Start Time:
+ * If start time is before 1:00 PM (13:00), it's Morning.
+ * If 1:00 PM (13:00) or later, it's Evening.
+ */
+export function getSlotPeriodFromTime(fromTime: string): SlotPeriod {
+  const minutes = timeToMinutes(fromTime);
+  // 13:00 = 780 minutes
+  return minutes < 780 ? 'Morning' : 'Evening';
+}
+
+/**
+ * Formats YYYY-MM-DD to readable date string (e.g., "15 August 2026")
+ */
+export function formatDateReadable(dateStr: string): string {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Formats YYYY-MM-DD to short date string (e.g., "15 Aug 2026")
+ */
+export function formatDateShort(dateStr: string): string {
+  if (!dateStr) return '';
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Gets today's current date in YYYY-MM-DD format (IST timezone aware)
+ */
+export function getTodayISTString(): string {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Kolkata',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(now);
+}
+
+/**
+ * Checks if a proposed booking time conflicts with an existing booking,
+ * enforcing direct overlap checks and the mandatory 1-hour (60 minute) buffer.
+ */
+export function hasBookingConflict(
+  proposedFrom: string,
+  proposedTo: string,
+  existingFrom: string,
+  existingTo: string
+): { hasConflict: boolean; reason?: string } {
+  const propStart = timeToMinutes(proposedFrom);
+  const propEnd = timeToMinutes(proposedTo);
+  const existStart = timeToMinutes(existingFrom);
+  const existEnd = timeToMinutes(existingTo);
+
+  if (propStart >= propEnd) {
+    return {
+      hasConflict: true,
+      reason: 'Start time must be strictly before end time.',
+    };
+  }
+
+  // Direct Overlap check
+  const isOverlapping = propStart < existEnd && propEnd > existStart;
+  if (isOverlapping) {
+    return {
+      hasConflict: true,
+      reason: `Direct overlap with existing booking (${formatTime12Hour(existingFrom)} – ${formatTime12Hour(existingTo)}).`,
+    };
+  }
+
+  // 1-Hour Buffer check (60 minutes)
+  const bufferMs = 60;
+  const violatesBuffer = propStart < existEnd + bufferMs && propEnd + bufferMs > existStart;
+
+  if (violatesBuffer) {
+    if (propStart >= existEnd && propStart < existEnd + bufferMs) {
+      const nextAllowed = minutesToTimeString(existEnd + bufferMs);
+      return {
+        hasConflict: true,
+        reason: `Mandatory 1-hour buffer required. Booking can start at or after ${formatTime12Hour(nextAllowed)}.`,
+      };
+    }
+    if (propEnd <= existStart && propEnd + bufferMs > existStart) {
+      const maxAllowedEnd = minutesToTimeString(existStart - bufferMs);
+      return {
+        hasConflict: true,
+        reason: `Mandatory 1-hour buffer required. Booking must end at or before ${formatTime12Hour(maxAllowedEnd)}.`,
+      };
+    }
+    return {
+      hasConflict: true,
+      reason: `Mandatory 1-hour buffer between bookings is violated.`,
+    };
+  }
+
+  return { hasConflict: false };
+}
+
+/**
+ * Analyzes availability for a given date given existing bookings
+ */
+export function getAvailabilityConflictPreview(
+  dateStr: string,
+  fromTime: string,
+  toTime: string,
+  existingBookings: Array<{ id?: string; from_time: string; to_time: string; customer_name?: string }>,
+  excludeBookingId?: string
+): {
+  isValid: boolean;
+  message?: string;
+  existingSlots: Array<{ from: string; to: string; bufferTo: string; customer?: string }>;
+  suggestedNextAvailable?: string;
+} {
+  const filtered = existingBookings.filter((b) => !excludeBookingId || b.id !== excludeBookingId);
+
+  const existingSlots = filtered.map((b) => {
+    const endMinutes = timeToMinutes(b.to_time);
+    const bufferEnd = minutesToTimeString(Math.min(1439, endMinutes + 60));
+    return {
+      from: formatTime12Hour(b.from_time),
+      to: formatTime12Hour(b.to_time),
+      bufferTo: formatTime12Hour(bufferEnd),
+      customer: b.customer_name,
+    };
+  });
+
+  if (!fromTime || !toTime) {
+    return {
+      isValid: false,
+      message: 'Please select both start time and end time.',
+      existingSlots,
+    };
+  }
+
+  if (timeToMinutes(fromTime) >= timeToMinutes(toTime)) {
+    return {
+      isValid: false,
+      message: 'Start time must be before End time.',
+      existingSlots,
+    };
+  }
+
+  for (const b of filtered) {
+    const conflict = hasBookingConflict(fromTime, toTime, b.from_time, b.to_time);
+    if (conflict.hasConflict) {
+      const existEnd = timeToMinutes(b.to_time);
+      const nextAvail = minutesToTimeString(Math.min(1439, existEnd + 60));
+      return {
+        isValid: false,
+        message: conflict.reason,
+        existingSlots,
+        suggestedNextAvailable: formatTime12Hour(nextAvail),
+      };
+    }
+  }
+
+  return {
+    isValid: true,
+    existingSlots,
+  };
+}
+
+/**
+ * Validates Indian 10-digit mobile number format (starts with 6-9, optionally with +91)
+ */
+export function isValidIndianMobile(phone: string): boolean {
+  if (!phone) return false;
+  const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+  if (cleaned.length === 10 && /^[6-9]\d{9}$/.test(cleaned)) {
+    return true;
+  }
+  if (cleaned.length === 12 && cleaned.startsWith('91') && /^[6-9]\d{9}$/.test(cleaned.slice(2))) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Cleans and formats phone number
+ */
+export function cleanMobileNumber(phone: string): string {
+  if (!phone) return '';
+  return phone.replace(/[^\d\+]/g, '');
+}
