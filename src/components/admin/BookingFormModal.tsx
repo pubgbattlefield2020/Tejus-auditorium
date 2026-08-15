@@ -34,6 +34,7 @@ import {
   isValidIndianMobile,
   cleanMobileNumber,
 } from '@/lib/time-utils';
+import { syncBookingToGoogleSheets } from '@/lib/google-sheets';
 import { TimePicker12 } from '@/components/common/TimePicker12';
 import { supabase } from '@/lib/supabase';
 import gsap from 'gsap';
@@ -353,6 +354,9 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
           },
         });
 
+        // Google Sheets live sync (background)
+        syncBookingToGoogleSheets(isNowCancelled ? 'CANCEL' : 'UPDATE', data as Booking);
+
         onSuccess(data as Booking);
       } else {
         const { data, error } = await supabase
@@ -386,6 +390,9 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
             status: data.status,
           },
         });
+
+        // Google Sheets live sync (background)
+        syncBookingToGoogleSheets('CREATE', data as Booking);
 
         onSuccess(data as Booking);
       }

@@ -31,6 +31,7 @@ import { TrashModal } from '@/components/admin/TrashModal';
 import { ActivityLogsModal } from '@/components/admin/ActivityLogsModal';
 import { YearlyCalendar } from '@/components/public/YearlyCalendar';
 import { formatDateReadable, formatTime12Hour, getTodayISTString } from '@/lib/time-utils';
+import { syncBookingToGoogleSheets, syncAllBookingsToGoogleSheets } from '@/lib/google-sheets';
 
 export default function AdminPage() {
   const router = useRouter();
@@ -53,6 +54,7 @@ export default function AdminPage() {
   const [trashCount, setTrashCount] = useState<number>(0);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
+  const [syncingSheets, setSyncingSheets] = useState(false);
 
   // Modal / Drawer States
   const [isDayDrawerOpen, setIsDayDrawerOpen] = useState(false);
@@ -230,9 +232,34 @@ export default function AdminPage() {
         },
       });
 
+      // Google Sheets sync
+      syncBookingToGoogleSheets('DELETE', booking);
+
       fetchAdminData();
     } catch (err: any) {
       alert(err.message || 'Failed to move booking to trash.');
+    }
+  };
+
+  const handleSyncAllToSheets = async () => {
+    const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL;
+    if (!webhookUrl) {
+      alert('Google Sheet Webhook URL is not configured yet.\n\nPlease follow the simple steps in GOOGLE_SHEETS_SETUP.md and add NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL to your environment variables.');
+      return;
+    }
+
+    setSyncingSheets(true);
+    try {
+      const res = await syncAllBookingsToGoogleSheets(bookings);
+      if (res.success) {
+        alert(`Successfully synced ${res.count} bookings to your Google Sheet!`);
+      } else {
+        alert('Failed to sync to Google Sheet. Please check your Webhook URL.');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error syncing to Google Sheet.');
+    } finally {
+      setSyncingSheets(false);
     }
   };
 
@@ -288,6 +315,8 @@ export default function AdminPage() {
         onSearchClick={() => setIsSearchModalOpen(true)}
         onTrashClick={() => setIsTrashModalOpen(true)}
         onLogsClick={() => setIsLogsModalOpen(true)}
+        onSyncSheetsClick={handleSyncAllToSheets}
+        syncingSheets={syncingSheets}
       />
 
       <main className="max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8 pb-16">

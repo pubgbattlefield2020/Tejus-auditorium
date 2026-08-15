@@ -2,7 +2,20 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Building2, Plus, Search, Trash2, History, LogOut, Eye, Shield, Menu, X } from 'lucide-react';
+import {
+  Building2,
+  Plus,
+  Search,
+  Trash2,
+  History,
+  LogOut,
+  Eye,
+  Shield,
+  Menu,
+  X,
+  FileSpreadsheet,
+  Loader2,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 
@@ -13,6 +26,8 @@ interface AdminHeaderProps {
   onSearchClick: () => void;
   onTrashClick: () => void;
   onLogsClick: () => void;
+  onSyncSheetsClick?: () => void;
+  syncingSheets?: boolean;
 }
 
 export const AdminHeader: React.FC<AdminHeaderProps> = ({
@@ -22,6 +37,8 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onSearchClick,
   onTrashClick,
   onLogsClick,
+  onSyncSheetsClick,
+  syncingSheets = false,
 }) => {
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -75,6 +92,23 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
           {/* Desktop Only Buttons */}
           <div className="hidden lg:flex items-center gap-1.5">
+            {/* Sync to Google Sheets */}
+            {onSyncSheetsClick && (
+              <button
+                onClick={onSyncSheetsClick}
+                disabled={syncingSheets}
+                className="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-semibold shadow-2xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                title="Sync all bookings to Google Sheets"
+              >
+                {syncingSheets ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                ) : (
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                )}
+                <span>{syncingSheets ? 'Syncing...' : 'Google Sheets'}</span>
+              </button>
+            )}
+
             {/* Trash Button */}
             <button
               onClick={onTrashClick}
@@ -139,6 +173,20 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
       {mobileMenuOpen && (
         <div className="lg:hidden bg-white/95 backdrop-blur-xl border-b border-slate-200 px-4 py-3 space-y-2 shadow-lg animate-in slide-in-from-top-2 duration-150">
           <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+            {onSyncSheetsClick && (
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  onSyncSheetsClick();
+                }}
+                disabled={syncingSheets}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>{syncingSheets ? 'Syncing...' : 'Sync Sheets'}</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 setMobileMenuOpen(false);
@@ -183,7 +231,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                 setMobileMenuOpen(false);
                 handleSignOut();
               }}
-              className="flex items-center gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 hover:bg-red-100"
+              className="flex items-center gap-2 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 col-span-2 sm:col-span-1"
             >
               <LogOut className="w-4 h-4" />
               Sign Out

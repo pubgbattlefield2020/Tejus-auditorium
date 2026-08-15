@@ -5,6 +5,7 @@ import { X, Trash2, RefreshCw, AlertTriangle, CheckCircle2, ShieldAlert, Loader2
 import { Booking } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { formatDateReadable, formatTime12Hour, hasBookingConflict } from '@/lib/time-utils';
+import { syncBookingToGoogleSheets } from '@/lib/google-sheets';
 
 interface TrashModalProps {
   isOpen: boolean;
@@ -107,6 +108,9 @@ export const TrashModal: React.FC<TrashModalProps> = ({
         },
       });
 
+      // Google Sheets sync
+      syncBookingToGoogleSheets('RESTORE', { ...booking, status: 'Confirmed', deleted_at: null });
+
       setSuccessMessage(`Booking ${booking.booking_id} restored successfully.`);
       fetchDeleted();
       onRestoreSuccess();
@@ -143,6 +147,9 @@ export const TrashModal: React.FC<TrashModalProps> = ({
           total_amount: booking.total_amount,
         },
       });
+
+      // Google Sheets sync
+      syncBookingToGoogleSheets('PERMANENT_DELETE', booking);
 
       setSuccessMessage(`Booking ${booking.booking_id} permanently deleted.`);
       fetchDeleted();
