@@ -22,6 +22,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   adminEmail = 'admin@tejusauditorium.com',
 }) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const printTemplateRef = useRef<HTMLDivElement>(null);
   const [downloading, setDownloading] = useState(false);
 
   if (!isOpen || !booking) return null;
@@ -40,33 +41,15 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
   };
 
   const handleDownloadPDF = async () => {
-    if (!receiptRef.current) return;
+    const targetElement = printTemplateRef.current || receiptRef.current;
+    if (!targetElement) return;
     setDownloading(true);
     try {
-      const canvas = await html2canvas(receiptRef.current, {
+      const canvas = await html2canvas(targetElement, {
         scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
-        windowWidth: 800,
-        onclone: (clonedDoc) => {
-          const el = clonedDoc.querySelector('.receipt-container') as HTMLElement;
-          if (el) {
-            el.style.width = '750px';
-            el.style.maxWidth = '750px';
-            el.style.margin = '0 auto';
-            el.style.padding = '36px';
-            el.style.boxSizing = 'border-box';
-
-            // Ensure grid layouts format in clean multi-column desktop style on all devices
-            const grids = el.querySelectorAll('.grid');
-            grids.forEach((g) => {
-              if (g.classList.contains('sm:grid-cols-3')) {
-                g.classList.remove('grid-cols-1', 'grid-cols-2');
-                g.classList.add('grid-cols-3');
-              }
-            });
-          }
-        },
+        logging: false,
       });
 
       const imgData = canvas.toDataURL('image/png');
@@ -318,6 +301,199 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Off-screen Standard A4 Print Template (794px @ 96DPI, Zero Media Query Interference) */}
+      <div
+        ref={printTemplateRef}
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: '0',
+          width: '794px',
+          backgroundColor: '#ffffff',
+          color: '#0f172a',
+          padding: '44px 48px',
+          boxSizing: 'border-box',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif',
+          zIndex: -100,
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: 'center', paddingBottom: '20px', borderBottom: '2px solid #0f172a' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '4px' }}>
+            <Building2 style={{ width: '28px', height: '28px', color: '#1d4ed8' }} />
+            <h1 style={{ margin: 0, fontSize: '26px', fontWeight: 800, letterSpacing: '-0.5px', color: '#020617', textTransform: 'uppercase' }}>
+              Tejus Auditorium
+            </h1>
+          </div>
+          <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#475569', fontWeight: 600, letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            Auditorium Booking & Payment Receipt
+          </p>
+          <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#334155', fontWeight: 600 }}>
+            Enquiries & Booking: <span style={{ fontWeight: 700, color: '#1e40af' }}>9447241559</span>
+          </p>
+        </div>
+
+        {/* Reference Numbers & Dates */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', margin: '18px 0', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '50%', verticalAlign: 'top', padding: '6px 0' }}>
+                <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Receipt Number</div>
+                <div style={{ fontSize: '15px', fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{receiptNo}</div>
+                
+                <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, marginTop: '10px' }}>Booking ID</div>
+                <div style={{ fontSize: '15px', fontFamily: 'monospace', fontWeight: 700, color: '#1d4ed8', marginTop: '2px' }}>{booking.booking_id}</div>
+              </td>
+              <td style={{ width: '50%', verticalAlign: 'top', textAlign: 'right', padding: '6px 0' }}>
+                <div style={{ fontSize: '11px', color: '#2563eb', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>
+                  ★ Programme Date (Event Date)
+                </div>
+                <div style={{ fontSize: '18px', fontWeight: 800, color: '#1e3a8a', marginTop: '2px' }}>
+                  {formatDateReadable(booking.programme_date)}
+                </div>
+
+                <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase', fontWeight: 600, marginTop: '10px' }}>
+                  Booking Date: <span style={{ color: '#0f172a', fontWeight: 700 }}>{formatDateReadable(booking.booking_date)}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* Customer Information */}
+        <div style={{ margin: '16px 0', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '8px' }}>
+            Customer Information
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '33.33%', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Name:</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{booking.customer_name}</div>
+                </td>
+                <td style={{ width: '33.33%', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Mobile Phone:</div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e40af', fontFamily: 'monospace', marginTop: '2px' }}>
+                    {booking.customer_phone || '—'}
+                  </div>
+                </td>
+                <td style={{ width: '33.33%', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Address / Place:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 500, color: '#1e293b', marginTop: '2px' }}>{booking.customer_address || '—'}</div>
+                </td>
+              </tr>
+              {booking.referred_by && (
+                <tr>
+                  <td colSpan={3} style={{ paddingTop: '8px', fontSize: '12px', color: '#64748b' }}>
+                    Referred By: <span style={{ fontWeight: 600, color: '#0f172a' }}>{booking.referred_by}</span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Programme & Event Details */}
+        <div style={{ margin: '16px 0', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '10px', color: '#64748b', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px', marginBottom: '8px' }}>
+            Programme & Event Details
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '33.33%', verticalAlign: 'top', paddingBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Programme Event:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{booking.programme_type}</div>
+                </td>
+                <td style={{ width: '33.33%', verticalAlign: 'top', paddingBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Event Date:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e40af', marginTop: '2px' }}>{formatDateReadable(booking.programme_date)}</div>
+                </td>
+                <td style={{ width: '33.33%', verticalAlign: 'top', paddingBottom: '10px' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Slot / Timing:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>
+                    {formatTime12Hour(booking.from_time)} – {formatTime12Hour(booking.to_time)}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600 }}>({booking.slot_period} Slot)</div>
+                </td>
+              </tr>
+              <tr>
+                <td style={{ width: '33.33%', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Area Reserved:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{booking.auditorium_area}</div>
+                </td>
+                <td style={{ width: '33.33%', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Air Conditioning:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', marginTop: '2px' }}>{booking.ac_type}</div>
+                </td>
+                <td style={{ width: '33.33%', verticalAlign: 'top' }}>
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>Booking Status:</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#047857', marginTop: '2px' }}>{booking.status}</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Financial Breakdown Table */}
+        <div style={{ margin: '18px 0', paddingBottom: '18px', borderBottom: '2px solid #0f172a' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #cbd5e1', fontSize: '11px', color: '#64748b', textTransform: 'uppercase', textAlign: 'left' }}>
+                <th style={{ padding: '8px 4px', fontWeight: 700 }}>Description</th>
+                <th style={{ padding: '8px 4px', textAlign: 'right', fontWeight: 700 }}>Amount (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style={{ padding: '10px 4px', fontSize: '13px', fontWeight: 500, color: '#1e293b' }}>
+                  Auditorium Reservation Charges ({booking.auditorium_area}, {booking.ac_type})
+                </td>
+                <td style={{ padding: '10px 4px', fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#0f172a', textAlign: 'right' }}>
+                  ₹ {Number(booking.total_amount).toLocaleString('en-IN')}
+                </td>
+              </tr>
+              <tr style={{ backgroundColor: '#ecfdf5' }}>
+                <td style={{ padding: '10px 8px', fontSize: '13px', fontWeight: 700, color: '#065f46' }}>
+                  Advance Payment Received
+                </td>
+                <td style={{ padding: '10px 8px', fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#065f46', textAlign: 'right' }}>
+                  ₹ {Number(booking.advance_amount).toLocaleString('en-IN')}
+                </td>
+              </tr>
+              <tr style={{ backgroundColor: '#fef3c7' }}>
+                <td style={{ padding: '12px 8px', fontSize: '14px', fontWeight: 800, color: '#78350f' }}>
+                  Pending Balance Due
+                </td>
+                <td style={{ padding: '12px 8px', fontSize: '16px', fontFamily: 'monospace', fontWeight: 800, color: '#78350f', textAlign: 'right' }}>
+                  ₹ {Number(booking.pending_amount).toLocaleString('en-IN')}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer Signature & Terms */}
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '24px' }}>
+          <tbody>
+            <tr>
+              <td style={{ width: '60%', verticalAlign: 'bottom', fontSize: '11px', color: '#64748b', lineHeight: 1.5 }}>
+                * This receipt is computer generated and valid upon confirmation of advance payment.
+                <br />
+                * Cancellation rules apply as per auditorium management policy.
+              </td>
+              <td style={{ width: '40%', verticalAlign: 'bottom', textAlign: 'right' }}>
+                <div style={{ display: 'inline-block', width: '180px', borderTop: '1px solid #94a3b8', paddingTop: '6px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>Authorised Signatory</div>
+                  <div style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>Tejus Auditorium</div>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
