@@ -543,6 +543,7 @@ export default function AdminPage() {
         onSuccess={() => fetchAdminData()}
         initialDate={selectedDateForBooking}
         initialBooking={selectedBookingForEdit}
+        allBookings={bookings}
         adminEmail={adminEmail}
       />
 

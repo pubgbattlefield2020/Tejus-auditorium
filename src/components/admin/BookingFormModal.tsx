@@ -46,6 +46,7 @@ interface BookingFormModalProps {
   initialDate?: string;
   initialBooking?: Booking | null;
   existingBookingsOnDate?: Booking[];
+  allBookings?: Booking[];
   adminEmail?: string;
 }
 
@@ -69,6 +70,7 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
   initialDate,
   initialBooking,
   existingBookingsOnDate = [],
+  allBookings = [],
   adminEmail = 'admin@tejusauditorium.com',
 }) => {
   const isEditMode = !!initialBooking;
@@ -190,7 +192,20 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
 
   // Fetch active bookings on selected programme_date for real-time conflict checking
   useEffect(() => {
-    if (!programmeDate) return;
+    if (!isOpen || !programmeDate) return;
+
+    // 1. Immediately seed from allBookings / existingBookingsOnDate if available (0ms instant check)
+    if (allBookings && allBookings.length > 0) {
+      const localMatches = allBookings.filter(
+        (b) => b.programme_date === programmeDate && !b.deleted_at && b.status !== 'Cancelled'
+      );
+      setDateBookings(localMatches);
+    } else if (existingBookingsOnDate && existingBookingsOnDate.length > 0) {
+      setDateBookings(existingBookingsOnDate);
+    }
+
+    // 2. Fetch fresh live snapshot from Supabase to guarantee cross-admin accuracy
+    let isCurrent = true;
     const fetchDateBookings = async () => {
       setLoadingDateBookings(true);
       try {
@@ -201,18 +216,22 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
           .is('deleted_at', null)
           .neq('status', 'Cancelled');
 
-        if (!error && data) {
+        if (!error && data && isCurrent) {
           setDateBookings(data as Booking[]);
         }
       } catch (err) {
         // silent fail
       } finally {
-        setLoadingDateBookings(false);
+        if (isCurrent) setLoadingDateBookings(false);
       }
     };
 
     fetchDateBookings();
-  }, [programmeDate]);
+
+    return () => {
+      isCurrent = false;
+    };
+  }, [programmeDate, isOpen, allBookings, existingBookingsOnDate]);
 
   // Real-time conflict preview analysis
   const conflictAnalysis = useMemo(() => {
