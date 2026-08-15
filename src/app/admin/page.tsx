@@ -540,7 +540,13 @@ export default function AdminPage() {
       <BookingFormModal
         isOpen={isBookingModalOpen}
         onClose={() => setIsBookingModalOpen(false)}
-        onSuccess={() => fetchAdminData()}
+        onSuccess={(savedBooking) => {
+          setBookings((prev) => {
+            const filtered = prev.filter((b) => b.id !== savedBooking.id);
+            return [savedBooking, ...filtered];
+          });
+          fetchAdminData();
+        }}
         initialDate={selectedDateForBooking}
         initialBooking={selectedBookingForEdit}
         allBookings={bookings}

@@ -323,6 +323,32 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
     setSubmitting(true);
 
     try {
+      // Live server verification right before submission
+      if (status !== 'Cancelled') {
+        const { data: freshLiveBookings } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('programme_date', programmeDate)
+          .is('deleted_at', null)
+          .neq('status', 'Cancelled');
+
+        if (freshLiveBookings) {
+          setDateBookings(freshLiveBookings as Booking[]);
+          const liveConflict = getAvailabilityConflictPreview(
+            programmeDate,
+            fromTime,
+            toTime,
+            freshLiveBookings as Booking[],
+            initialBooking?.id
+          );
+          if (!liveConflict.isValid) {
+            setFormError(liveConflict.message || 'Time conflict detected with an existing booking or buffer.');
+            setSubmitting(false);
+            return;
+          }
+        }
+      }
+
       const payload: Partial<Booking> = {
         booking_id: bookingId.trim(),
         customer_name: customerName.trim(),
@@ -712,7 +738,12 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
 
             {/* Real-time Conflict Preview Card & Friendly Alert */}
             <div className="pt-2">
-              {conflictAnalysis.isValid ? (
+              {loadingDateBookings ? (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center gap-2 text-xs">
+                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                  <span className="font-medium">Checking live availability on {formatDateReadable(programmeDate)}...</span>
+                </div>
+              ) : conflictAnalysis.isValid ? (
                 <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex items-start gap-2.5 text-xs">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                   <div>
