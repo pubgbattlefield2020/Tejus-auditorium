@@ -25,6 +25,8 @@ import {
   ChevronDown,
   ChevronRight,
   ExternalLink,
+  MapPin,
+  Sparkles,
 } from 'lucide-react';
 import { ActivityLog } from '@/types';
 import { supabase } from '@/lib/supabase';
@@ -170,17 +172,17 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
     });
   }, [logs, filterAction, searchTerm]);
 
-  // Helper to extract field changes for UPDATE actions
+  // Helper to extract field changes for UPDATE actions with exact value normalization
   const getChangedFields = (details: any) => {
     if (!details || !details.changes || !details.previous) return [];
     const changes = details.changes;
     const previous = details.previous;
-    const diffs: Array<{ field: string; oldVal: any; newVal: any }> = [];
+    const diffs: Array<{ field: string; oldVal: string; newVal: string }> = [];
 
     const fieldLabels: Record<string, string> = {
       customer_name: 'Customer Name',
       customer_phone: 'Mobile Phone',
-      customer_address: 'Address',
+      customer_address: 'Address / Place',
       programme_date: 'Event Date',
       from_time: 'From Time',
       to_time: 'To Time',
@@ -190,40 +192,91 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
       auditorium_area: 'Auditorium Area',
       waste_cleaning: 'Waste Cleaning',
       referred_by: 'Referred By',
-      total_amount: 'Total Amount (₹)',
-      advance_amount: 'Advance Amount (₹)',
+      total_amount: 'Total Amount',
+      advance_amount: 'Advance Paid',
+      pending_amount: 'Balance Pending',
       status: 'Booking Status',
     };
 
-    Object.keys(changes).forEach((key) => {
-      let oldVal = previous[key];
-      let newVal = changes[key];
+    Object.keys(fieldLabels).forEach((key) => {
+      if (!(key in changes) && !(key in previous)) return;
+
+      const rawPrev = previous[key];
+      const rawNew = changes[key] !== undefined ? changes[key] : rawPrev;
+
+      let isChanged = false;
+      let displayPrev = '';
+      let displayNew = '';
 
       if (key === 'from_time' || key === 'to_time') {
-        oldVal = oldVal ? formatTime12Hour(oldVal.slice(0, 5)) : oldVal;
-        newVal = newVal ? formatTime12Hour(newVal.slice(0, 5)) : newVal;
+        const pNorm = (rawPrev || '').toString().slice(0, 5);
+        const nNorm = (rawNew || '').toString().slice(0, 5);
+        if (pNorm !== nNorm) {
+          isChanged = true;
+          displayPrev = pNorm ? formatTime12Hour(pNorm) : '—';
+          displayNew = nNorm ? formatTime12Hour(nNorm) : '—';
+        }
+      } else if (key === 'total_amount' || key === 'advance_amount' || key === 'pending_amount') {
+        const pNum = Number(rawPrev || 0);
+        const nNum = Number(rawNew || 0);
+        if (pNum !== nNum) {
+          isChanged = true;
+          displayPrev = `₹ ${pNum.toLocaleString('en-IN')}`;
+          displayNew = `₹ ${nNum.toLocaleString('en-IN')}`;
+        }
+      } else if (key === 'programme_date') {
+        const pStr = (rawPrev || '').toString().slice(0, 10);
+        const nStr = (rawNew || '').toString().slice(0, 10);
+        if (pStr !== nStr) {
+          isChanged = true;
+          displayPrev = pStr ? formatDateReadable(pStr) : '—';
+          displayNew = nStr ? formatDateReadable(nStr) : '—';
+        }
+      } else {
+        const pStr = (rawPrev !== null && rawPrev !== undefined ? String(rawPrev) : '').trim();
+        const nStr = (rawNew !== null && rawNew !== undefined ? String(rawNew) : '').trim();
+        if (pStr !== nStr) {
+          isChanged = true;
+          displayPrev = pStr || '—';
+          displayNew = nStr || '—';
+        }
       }
 
-      if (key === 'programme_date') {
-        oldVal = oldVal ? formatDateReadable(oldVal) : oldVal;
-        newVal = newVal ? formatDateReadable(newVal) : newVal;
-      }
-
-      if (key === 'total_amount' || key === 'advance_amount') {
-        oldVal = oldVal !== undefined ? `₹ ${Number(oldVal).toLocaleString('en-IN')}` : oldVal;
-        newVal = newVal !== undefined ? `₹ ${Number(newVal).toLocaleString('en-IN')}` : newVal;
-      }
-
-      if (String(previous[key]) !== String(changes[key]) && fieldLabels[key]) {
+      if (isChanged) {
         diffs.push({
-          field: fieldLabels[key] || key,
-          oldVal: oldVal !== null && oldVal !== undefined && oldVal !== '' ? String(oldVal) : '—',
-          newVal: newVal !== null && newVal !== undefined && newVal !== '' ? String(newVal) : '—',
+          field: fieldLabels[key],
+          oldVal: displayPrev,
+          newVal: displayNew,
         });
       }
     });
 
     return diffs;
+  };
+
+  // Helper to extract full snapshot of booking from log details
+  const getBookingSnapshot = (details: any) => {
+    if (!details) return null;
+    const snap = { ...(details.previous || {}), ...(details.changes || {}), ...details };
+
+    return {
+      customer_name: snap.customer_name || '—',
+      customer_phone: snap.customer_phone || '—',
+      customer_address: snap.customer_address || '—',
+      programme_date: snap.programme_date ? formatDateReadable(snap.programme_date) : '—',
+      from_time: snap.from_time ? formatTime12Hour(snap.from_time.slice(0, 5)) : '',
+      to_time: snap.to_time ? formatTime12Hour(snap.to_time.slice(0, 5)) : '',
+      slot_period: snap.slot_period || '—',
+      programme_type: snap.programme_type || '—',
+      ac_type: snap.ac_type || '—',
+      auditorium_area: snap.auditorium_area || '—',
+      waste_cleaning: snap.waste_cleaning || '—',
+      referred_by: snap.referred_by || '—',
+      total_amount: Number(snap.total_amount || 0),
+      advance_amount: Number(snap.advance_amount || 0),
+      pending_amount: Number(snap.pending_amount || (Number(snap.total_amount || 0) - Number(snap.advance_amount || 0))),
+      status: snap.status || snap.new_status || 'Confirmed',
+    };
   };
 
   if (!isOpen) return null;
@@ -391,7 +444,7 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
           />
 
           {/* Detail Card */}
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 sm:p-7 max-h-[88vh] overflow-y-auto z-[102] my-auto animate-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 sm:p-7 max-h-[90vh] overflow-y-auto z-[102] my-auto animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
               <div className="flex items-center gap-2.5">
@@ -475,45 +528,119 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
 
               {/* 2. UPDATE (MODIFIED) DETAILS - BEFORE VS AFTER */}
               {selectedLog.action === 'UPDATE' && (
-                <div>
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
-                    Modified Fields (Before vs After)
-                  </h5>
+                <div className="space-y-3">
+                  <div>
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-2 flex items-center gap-1.5">
+                      <RefreshCw className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Specific Changes in this Update (Before vs After)</span>
+                    </h5>
 
-                  {(() => {
-                    const diffs = getChangedFields(selectedLog.details);
-                    if (diffs.length === 0) {
+                    {(() => {
+                      const diffs = getChangedFields(selectedLog.details);
+                      if (diffs.length === 0) {
+                        return (
+                          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
+                            General update saved for booking {selectedLog.booking_id}.
+                          </div>
+                        );
+                      }
+
                       return (
-                        <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs text-slate-500">
-                          General update saved for booking {selectedLog.booking_id}.
+                        <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+                          <table className="w-full text-xs text-left">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-600 font-bold text-[10px] uppercase border-b border-slate-200">
+                                <th className="py-2 px-3">Field</th>
+                                <th className="py-2 px-3 text-amber-700">Previous Value</th>
+                                <th className="py-2 px-3 text-emerald-700">New Value</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {diffs.map((d, idx) => (
+                                <tr key={idx} className="hover:bg-slate-50/80">
+                                  <td className="py-2.5 px-3 font-bold text-slate-800">{d.field}</td>
+                                  <td className="py-2.5 px-3 text-amber-800 bg-amber-50/40 font-mono">
+                                    {d.oldVal}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-emerald-800 bg-emerald-50/40 font-mono font-bold">
+                                    {d.newVal}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       );
-                    }
+                    })()}
+                  </div>
+
+                  {/* Complete Booking Snapshot for Context */}
+                  {(() => {
+                    const snap = getBookingSnapshot(selectedLog.details);
+                    if (!snap) return null;
 
                     return (
-                      <div className="rounded-2xl border border-slate-200 overflow-hidden">
-                        <table className="w-full text-xs text-left">
-                          <thead>
-                            <tr className="bg-slate-100 text-slate-600 font-bold text-[10px] uppercase border-b border-slate-200">
-                              <th className="py-2 px-3">Field</th>
-                              <th className="py-2 px-3 text-amber-700">Previous Value</th>
-                              <th className="py-2 px-3 text-emerald-700">New Value</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100">
-                            {diffs.map((d, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50/80">
-                                <td className="py-2.5 px-3 font-bold text-slate-800">{d.field}</td>
-                                <td className="py-2.5 px-3 text-amber-800 bg-amber-50/40 font-mono">
-                                  {d.oldVal}
-                                </td>
-                                <td className="py-2.5 px-3 text-emerald-800 bg-emerald-50/40 font-mono font-bold">
-                                  {d.newVal}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5 text-xs">
+                        <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                          Complete Booking Snapshot (After Update)
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-slate-700">
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Customer</span>
+                            <span className="font-bold text-slate-900 block">{snap.customer_name}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Mobile Phone</span>
+                            <span className="font-mono font-bold text-blue-700 block">{snap.customer_phone}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Event Date</span>
+                            <span className="font-bold text-slate-900 block">{snap.programme_date}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Timing</span>
+                            <span className="font-medium text-slate-800 block">
+                              {snap.from_time} – {snap.to_time} ({snap.slot_period})
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Event Type</span>
+                            <span className="font-medium text-slate-800 block">{snap.programme_type}</span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Venue Options</span>
+                            <span className="font-medium text-slate-800 block">
+                              {snap.auditorium_area}, {snap.ac_type}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Total Amount</span>
+                            <span className="font-mono font-bold text-slate-900 block">
+                              ₹ {snap.total_amount.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Advance Paid</span>
+                            <span className="font-mono font-bold text-emerald-700 block">
+                              ₹ {snap.advance_amount.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+
+                          <div>
+                            <span className="text-slate-400 block text-[10px] uppercase font-semibold">Pending Balance</span>
+                            <span className="font-mono font-bold text-amber-800 block">
+                              ₹ {snap.pending_amount.toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     );
                   })()}
@@ -560,9 +687,30 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                     </div>
 
                     <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Venue & AC</span>
+                      <span className="font-medium text-slate-800">
+                        {selectedLog.details?.auditorium_area || 'Full Auditorium'}, {selectedLog.details?.ac_type || 'AC'}
+                      </span>
+                    </div>
+
+                    <div>
                       <span className="text-slate-400 block text-[10px] uppercase font-bold">Total Amount</span>
                       <span className="font-mono font-bold text-slate-900">
                         ₹ {Number(selectedLog.details?.total_amount || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Advance Paid</span>
+                      <span className="font-mono font-bold text-emerald-700">
+                        ₹ {Number(selectedLog.details?.advance_amount || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-slate-400 block text-[10px] uppercase font-bold">Pending Balance</span>
+                      <span className="font-mono font-bold text-amber-800">
+                        ₹ {Number(selectedLog.details?.pending_amount || (Number(selectedLog.details?.total_amount || 0) - Number(selectedLog.details?.advance_amount || 0))).toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
