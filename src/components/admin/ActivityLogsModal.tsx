@@ -229,162 +229,169 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
-      {/* Backdrop */}
-      <div onClick={onClose} className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" />
+    <>
+      {/* Outer Audit Trail Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+        {/* Backdrop */}
+        <div onClick={onClose} className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" />
 
-      {/* Main Modal */}
-      <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-4 sm:p-7 max-h-[92vh] overflow-y-auto z-10 my-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-2xs">
-              <History className="w-5 h-5" />
+        {/* Main Modal Card */}
+        <div className="relative w-full max-w-4xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-4 sm:p-7 max-h-[92vh] overflow-y-auto z-10 my-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between pb-3.5 border-b border-slate-100 mb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shadow-2xs">
+                <History className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Activity Audit Trail</h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Click on any log entry below to view full details and change history
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">Activity Audit Trail</h3>
-              <p className="text-xs text-slate-500 font-medium">
-                Click on any log entry below to view full details and change history
-              </p>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Search & Action Filter Tabs */}
+          <div className="space-y-2.5 mb-4">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search by Booking ID, Customer Name, or Admin..."
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
+              />
             </div>
-          </div>
 
-          <button
-            onClick={onClose}
-            className="p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Search & Action Filter Tabs */}
-        <div className="space-y-2.5 mb-4">
-          {/* Search Box */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by Booking ID, Customer Name, or Admin..."
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-900 focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all"
-            />
-          </div>
-
-          {/* Action Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
-            {[
-              { id: 'ALL', label: 'All Activities' },
-              { id: 'CREATE', label: 'Created' },
-              { id: 'UPDATE', label: 'Modified' },
-              { id: 'CANCEL', label: 'Cancelled' },
-              { id: 'DELETE', label: 'Trash' },
-              { id: 'RESTORE', label: 'Restored' },
-              { id: 'RECEIPT', label: 'Receipts' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setFilterAction(tab.id)}
-                className={`px-3 py-1.5 rounded-lg font-bold text-xs shrink-0 transition-all cursor-pointer ${
-                  filterAction === tab.id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Logs List Container */}
-        {loading ? (
-          <div className="py-14 flex flex-col items-center justify-center text-slate-400 gap-2">
-            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-            <span className="text-xs font-semibold">Loading audit logs...</span>
-          </div>
-        ) : filteredLogs.length === 0 ? (
-          <div className="py-12 text-center text-slate-400">
-            <History className="w-12 h-12 mx-auto mb-2 opacity-30" />
-            <p className="text-sm font-semibold text-slate-600">No activity logs found</p>
-            <p className="text-xs text-slate-400 mt-0.5">Try clearing filters or search query.</p>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
-            {filteredLogs.map((log) => {
-              const badge = getActionBadge(log.action);
-              const BadgeIcon = badge.icon;
-
-              return (
-                <div
-                  key={log.id}
-                  onClick={() => setSelectedLog(log)}
-                  className="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200/80 hover:border-blue-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all cursor-pointer shadow-2xs group"
+            {/* Action Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+              {[
+                { id: 'ALL', label: 'All Activities' },
+                { id: 'CREATE', label: 'Created' },
+                { id: 'UPDATE', label: 'Modified' },
+                { id: 'CANCEL', label: 'Cancelled' },
+                { id: 'DELETE', label: 'Trash' },
+                { id: 'RESTORE', label: 'Restored' },
+                { id: 'RECEIPT', label: 'Receipts' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setFilterAction(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg font-bold text-xs shrink-0 transition-all cursor-pointer ${
+                    filterAction === tab.id
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                  }`}
                 >
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <span className={`px-2.5 py-0.8 rounded-full font-bold border flex items-center gap-1 text-[11px] ${badge.className}`}>
-                      <BadgeIcon className="w-3 h-3" />
-                      <span>{badge.label}</span>
-                    </span>
-
-                    <span className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
-                      {log.booking_id}
-                    </span>
-
-                    {log.details?.customer_name && (
-                      <span className="text-slate-700 font-semibold">• {log.details.customer_name}</span>
-                    )}
-
-                    {log.details?.programme_date && (
-                      <span className="text-slate-500 font-normal">
-                        ({formatDateReadable(log.details.programme_date)})
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-3 text-slate-400 text-[11px] self-end sm:self-center">
-                    <span className="text-slate-600 font-medium">{log.admin_email || 'Admin'}</span>
-                    <span>•</span>
-                    <span>{formatIST(log.created_at)}</span>
-                    <span className="text-blue-600 font-bold group-hover:translate-x-0.5 transition-transform">
-                      View Details →
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
+                  {tab.label}
+                </button>
+              ))}
+            </div>
           </div>
-        )}
 
-        {/* Footer */}
-        <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
-          <span className="text-xs text-slate-400 font-medium">
-            Showing {filteredLogs.length} of {logs.length} audit entries
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
-          >
-            Close Logs
-          </button>
+          {/* Logs List Container */}
+          {loading ? (
+            <div className="py-14 flex flex-col items-center justify-center text-slate-400 gap-2">
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              <span className="text-xs font-semibold">Loading audit logs...</span>
+            </div>
+          ) : filteredLogs.length === 0 ? (
+            <div className="py-12 text-center text-slate-400">
+              <History className="w-12 h-12 mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-semibold text-slate-600">No activity logs found</p>
+              <p className="text-xs text-slate-400 mt-0.5">Try clearing filters or search query.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-[55vh] overflow-y-auto pr-1">
+              {filteredLogs.map((log) => {
+                const badge = getActionBadge(log.action);
+                const BadgeIcon = badge.icon;
+
+                return (
+                  <div
+                    key={log.id}
+                    onClick={() => {
+                      setSelectedLog(log);
+                      setShowRawJson(false);
+                    }}
+                    className="p-3.5 rounded-2xl bg-slate-50 hover:bg-blue-50/70 border border-slate-200/80 hover:border-blue-300 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs transition-all cursor-pointer shadow-2xs group"
+                  >
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className={`px-2.5 py-0.8 rounded-full font-bold border flex items-center gap-1 text-[11px] ${badge.className}`}>
+                        <BadgeIcon className="w-3 h-3" />
+                        <span>{badge.label}</span>
+                      </span>
+
+                      <span className="font-mono font-bold text-slate-900 group-hover:text-blue-700 transition-colors">
+                        {log.booking_id}
+                      </span>
+
+                      {log.details?.customer_name && (
+                        <span className="text-slate-700 font-semibold">• {log.details.customer_name}</span>
+                      )}
+
+                      {log.details?.programme_date && (
+                        <span className="text-slate-500 font-normal">
+                          ({formatDateReadable(log.details.programme_date)})
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-3 text-slate-400 text-[11px] self-end sm:self-center">
+                      <span className="text-slate-600 font-medium">{log.admin_email || 'Admin'}</span>
+                      <span>•</span>
+                      <span>{formatIST(log.created_at)}</span>
+                      <span className="text-blue-600 font-bold group-hover:translate-x-0.5 transition-transform">
+                        View Details →
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="mt-5 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs text-slate-400 font-medium">
+              Showing {filteredLogs.length} of {logs.length} audit entries
+            </span>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Close Logs
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* ACTIVITY DETAIL POPUP MODAL */}
+      {/* ACTIVITY DETAIL POPUP MODAL (HIGH Z-INDEX OVERLAY) */}
       {/* ========================================================================= */}
       {selectedLog && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          {/* Nested Backdrop */}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+          {/* Nested High-Priority Backdrop */}
           <div
             onClick={() => setSelectedLog(null)}
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs transition-opacity z-[101]"
           />
 
           {/* Detail Card */}
-          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 sm:p-7 max-h-[88vh] overflow-y-auto z-10 my-auto animate-in zoom-in-95 duration-150">
+          <div className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-slate-100 p-5 sm:p-7 max-h-[88vh] overflow-y-auto z-[102] my-auto animate-in zoom-in-95 duration-150">
             {/* Header */}
             <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
               <div className="flex items-center gap-2.5">
@@ -635,6 +642,6 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
