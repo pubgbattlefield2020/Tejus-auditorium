@@ -194,55 +194,76 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
   useEffect(() => {
     if (!isOpen || !programmeDate) return;
 
-    // 1. Immediately seed from allBookings / existingBookingsOnDate if available (0ms instant check)
-    if (allBookings && allBookings.length > 0) {
-      const localMatches = allBookings.filter(
-        (b) => b.programme_date === programmeDate && !b.deleted_at && b.status !== 'Cancelled'
-      );
-      setDateBookings(localMatches);
-    } else if (existingBookingsOnDate && existingBookingsOnDate.length > 0) {
-      setDateBookings(existingBookingsOnDate);
-    }
+    let active = true;
+    setLoadingDateBookings(true);
 
-    // 2. Fetch fresh live snapshot from Supabase to guarantee cross-admin accuracy
-    let isCurrent = true;
-    const fetchDateBookings = async () => {
-      setLoadingDateBookings(true);
-      try {
-        const { data, error } = await supabase
-          .from('bookings')
-          .select('*')
-          .eq('programme_date', programmeDate)
-          .is('deleted_at', null)
-          .neq('status', 'Cancelled');
-
-        if (!error && data && isCurrent) {
-          setDateBookings(data as Booking[]);
+    supabase
+      .from('bookings')
+      .select('*')
+      .eq('programme_date', programmeDate)
+      .is('deleted_at', null)
+      .neq('status', 'Cancelled')
+      .then(({ data, error }) => {
+        if (active) {
+          if (!error && data) {
+            setDateBookings(data as Booking[]);
+          }
+          setLoadingDateBookings(false);
         }
-      } catch (err) {
-        // silent fail
-      } finally {
-        if (isCurrent) setLoadingDateBookings(false);
-      }
-    };
-
-    fetchDateBookings();
+      })
+      .catch(() => {
+        if (active) setLoadingDateBookings(false);
+      });
 
     return () => {
-      isCurrent = false;
+      active = false;
     };
-  }, [programmeDate, isOpen, allBookings, existingBookingsOnDate]);
+  }, [programmeDate, isOpen]);
 
-  // Real-time conflict preview analysis
+  // Real-time conflict preview analysis with unified multi-source candidate merging
   const conflictAnalysis = useMemo(() => {
+    const bookingsMap = new Map<string, Booking>();
+
+    // 1. From allBookings in parent dashboard memory (instantaneous synchronous check)
+    if (allBookings && allBookings.length > 0) {
+      allBookings
+        .filter((b) => b.programme_date === programmeDate && !b.deleted_at && b.status !== 'Cancelled')
+        .forEach((b) => {
+          const key = b.id || b.booking_id;
+          if (key) bookingsMap.set(key, b);
+        });
+    }
+
+    // 2. From existingBookingsOnDate prop
+    if (existingBookingsOnDate && existingBookingsOnDate.length > 0) {
+      existingBookingsOnDate
+        .filter((b) => !b.deleted_at && b.status !== 'Cancelled')
+        .forEach((b) => {
+          const key = b.id || b.booking_id;
+          if (key) bookingsMap.set(key, b);
+        });
+    }
+
+    // 3. From locally queried dateBookings from Supabase
+    if (dateBookings && dateBookings.length > 0) {
+      dateBookings
+        .filter((b) => b.programme_date === programmeDate && !b.deleted_at && b.status !== 'Cancelled')
+        .forEach((b) => {
+          const key = b.id || b.booking_id;
+          if (key) bookingsMap.set(key, b);
+        });
+    }
+
+    const mergedBookings = Array.from(bookingsMap.values());
+
     return getAvailabilityConflictPreview(
       programmeDate,
       fromTime,
       toTime,
-      dateBookings,
+      mergedBookings,
       initialBooking?.id
     );
-  }, [programmeDate, fromTime, toTime, dateBookings, initialBooking?.id]);
+  }, [programmeDate, fromTime, toTime, allBookings, existingBookingsOnDate, dateBookings, initialBooking?.id]);
 
   // Time preset helper
   const setTimePreset = (from: string, to: string) => {
