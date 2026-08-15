@@ -333,11 +333,21 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
 
         if (error) throw error;
 
+        const isNowCancelled = payload.status === 'Cancelled' && initialBooking.status !== 'Cancelled';
+
         await supabase.from('activity_logs').insert({
           booking_id: bookingId.trim(),
-          action: 'UPDATE',
+          action: isNowCancelled ? 'CANCEL' : 'UPDATE',
           admin_email: adminEmail,
           details: {
+            customer_name: data.customer_name,
+            customer_phone: data.customer_phone,
+            programme_date: data.programme_date,
+            from_time: data.from_time,
+            to_time: data.to_time,
+            slot_period: data.slot_period,
+            previous_status: initialBooking.status,
+            new_status: data.status,
             changes: payload,
             previous: initialBooking,
           },
@@ -360,10 +370,20 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
           details: {
             customer_name: data.customer_name,
             customer_phone: data.customer_phone,
+            customer_address: data.customer_address,
             programme_date: data.programme_date,
+            from_time: data.from_time,
+            to_time: data.to_time,
             slot_period: data.slot_period,
             programme_type: data.programme_type,
+            ac_type: data.ac_type,
+            auditorium_area: data.auditorium_area,
+            waste_cleaning: data.waste_cleaning,
+            referred_by: data.referred_by,
             total_amount: data.total_amount,
+            advance_amount: data.advance_amount,
+            pending_amount: data.pending_amount,
+            status: data.status,
           },
         });
 
