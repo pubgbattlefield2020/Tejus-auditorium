@@ -8,15 +8,14 @@ import { supabase } from '@/lib/supabase';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState('tejusauditorium@gmail.com');
-  const [password, setPassword] = useState('tejus@2027');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Load remembered credentials if any
+  // Load remembered email if user previously enabled "Remember me" on this device
   useEffect(() => {
-    // Check if already authenticated
     const checkActiveSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -31,8 +30,10 @@ export default function AdminLoginPage() {
       if (typeof window !== 'undefined') {
         const savedEmail = localStorage.getItem('tejus_admin_email');
         const savedRemember = localStorage.getItem('tejus_remember_me');
-        if (savedEmail) setEmail(savedEmail);
-        if (savedRemember !== null) setRememberMe(savedRemember === 'true');
+        if (savedEmail && savedRemember === 'true') {
+          setEmail(savedEmail);
+          setRememberMe(true);
+        }
       }
     };
 
@@ -54,13 +55,13 @@ export default function AdminLoginPage() {
         setErrorMsg(error.message || 'Invalid email or password. Please try again.');
         setLoading(false);
       } else if (data.session) {
-        // Save remember me preference
+        // Save remember me preference only if checked
         if (rememberMe) {
           localStorage.setItem('tejus_admin_email', email.trim());
           localStorage.setItem('tejus_remember_me', 'true');
         } else {
           localStorage.removeItem('tejus_admin_email');
-          localStorage.setItem('tejus_remember_me', 'false');
+          localStorage.removeItem('tejus_remember_me');
         }
 
         router.replace('/admin');
@@ -83,13 +84,15 @@ export default function AdminLoginPage() {
             <div className="text-left">
               <div className="flex items-center gap-1.5">
                 <span className="text-xl font-bold tracking-tight text-slate-900">TEJUS</span>
-                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">AUDITORIUM</span>
+                <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                  AUDITORIUM
+                </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">Administration Portal</p>
             </div>
           </Link>
           <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Admin Sign In</h2>
-          <p className="text-xs text-slate-500 mt-1">Access Auditorium Booking Management System</p>
+          <p className="text-xs text-slate-500 mt-1">Enter your admin credentials to access the management portal</p>
         </div>
 
         {/* Login Form Card */}
@@ -111,9 +114,10 @@ export default function AdminLoginPage() {
                 <input
                   type="email"
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@tejusauditorium.com"
+                  placeholder="admin@example.com"
                   className="w-full pl-10 pr-4 py-3 bg-white/90 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-sm font-medium text-slate-900 transition-all"
                 />
               </div>
@@ -128,9 +132,10 @@ export default function AdminLoginPage() {
                 <input
                   type="password"
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
+                  placeholder="Enter your password"
                   className="w-full pl-10 pr-4 py-3 bg-white/90 rounded-2xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 text-sm font-medium text-slate-900 transition-all"
                 />
               </div>
@@ -153,8 +158,8 @@ export default function AdminLoginPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all disabled:opacity-70 mt-3 cursor-pointer"
+              disabled={loading || !email.trim() || !password.trim()}
+              className="w-full py-3.5 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center gap-2 transition-all disabled:opacity-50 mt-3 cursor-pointer"
             >
               {loading ? (
                 <>
