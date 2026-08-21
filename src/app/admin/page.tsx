@@ -35,7 +35,7 @@ import { syncBookingToGoogleSheets, syncAllBookingsToGoogleSheets } from '@/lib/
 
 export default function AdminPage() {
   const router = useRouter();
-  const todayIST = getTodayISTString();
+  const [todayIST, setTodayIST] = useState<string>(getTodayISTString);
 
   // Auth State
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -45,7 +45,7 @@ export default function AdminPage() {
   // View States
   const [viewMode, setViewMode] = useState<'calendar' | 'yearly' | 'table'>('calendar');
   const [currentDate, setCurrentDate] = useState(() => {
-    const [year, month] = todayIST.split('-').map(Number);
+    const [year, month] = getTodayISTString().split('-').map(Number);
     return new Date(year, month - 1, 1);
   });
 
@@ -58,11 +58,21 @@ export default function AdminPage() {
 
   // Modal / Drawer States
   const [isDayDrawerOpen, setIsDayDrawerOpen] = useState(false);
-  const [selectedDrawerDate, setSelectedDrawerDate] = useState<string>(todayIST);
+  const [selectedDrawerDate, setSelectedDrawerDate] = useState<string>(getTodayISTString);
 
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
-  const [selectedDateForBooking, setSelectedDateForBooking] = useState<string>(todayIST);
+  const [selectedDateForBooking, setSelectedDateForBooking] = useState<string>(getTodayISTString);
   const [selectedBookingForEdit, setSelectedBookingForEdit] = useState<Booking | null>(null);
+
+  // Sync today's date upon mount
+  useEffect(() => {
+    const liveToday = getTodayISTString();
+    setTodayIST(liveToday);
+    const [year, month] = liveToday.split('-').map(Number);
+    setCurrentDate(new Date(year, month - 1, 1));
+    setSelectedDrawerDate(liveToday);
+    setSelectedDateForBooking(liveToday);
+  }, []);
 
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [selectedBookingForReceipt, setSelectedBookingForReceipt] = useState<Booking | null>(null);

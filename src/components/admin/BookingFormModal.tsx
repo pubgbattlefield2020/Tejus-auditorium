@@ -158,14 +158,15 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
         setAdvanceAmount(initialBooking.advance_amount);
         setStatus(initialBooking.status);
       } else {
-        const defaultProgDate = initialDate || todayIST;
+        const freshToday = getTodayISTString();
+        const defaultProgDate = initialDate || freshToday;
         const randomNum = Math.floor(1000 + Math.random() * 9000);
-        const year = defaultProgDate.split('-')[0] || '2026';
+        const year = defaultProgDate.split('-')[0] || String(new Date().getFullYear());
         setBookingId(`TA-${year}-${randomNum}`);
         setCustomerName('');
         setCustomerPhone('');
         setCustomerAddress('');
-        setBookingDate(todayIST);
+        setBookingDate(freshToday);
         setProgrammeDate(defaultProgDate);
         setFromTime('09:00');
         setToTime('13:00');

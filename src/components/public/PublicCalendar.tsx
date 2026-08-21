@@ -16,11 +16,17 @@ export const PublicCalendar: React.FC<PublicCalendarProps> = ({
   currentDate: externalDate,
   onDateChange,
 }) => {
-  const todayIST = getTodayISTString();
+  const [todayDate, setTodayDate] = useState<string>(getTodayISTString);
   const [internalDate, setInternalDate] = useState(() => {
-    const [year, month] = todayIST.split('-').map(Number);
+    const [year, month] = getTodayISTString().split('-').map(Number);
     return new Date(year, month - 1, 1);
   });
+
+  // Keep today's date dynamically synced on mount
+  useEffect(() => {
+    const currentToday = getTodayISTString();
+    setTodayDate(currentToday);
+  }, []);
 
   const currentDate = externalDate || internalDate;
   const setDate = onDateChange || setInternalDate;
@@ -74,7 +80,9 @@ export const PublicCalendar: React.FC<PublicCalendarProps> = ({
   };
 
   const handleToday = () => {
-    const [tYear, tMonth] = todayIST.split('-').map(Number);
+    const currentToday = getTodayISTString();
+    setTodayDate(currentToday);
+    const [tYear, tMonth] = currentToday.split('-').map(Number);
     setDate(new Date(tYear, tMonth - 1, 1));
   };
 
@@ -227,7 +235,7 @@ export const PublicCalendar: React.FC<PublicCalendarProps> = ({
           <div className="grid grid-cols-7 gap-1 sm:gap-2.5">
             {calendarDays.map(({ dateStr, day, isCurrentMonth }, index) => {
               const availability = getDateAvailability(dateStr);
-              const isToday = dateStr === todayIST;
+              const isToday = dateStr === todayDate;
 
               // Color styles based on status
               let bgStyle = 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-2xs';

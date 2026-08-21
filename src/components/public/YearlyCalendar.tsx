@@ -25,12 +25,19 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
   onAdminDeleteBooking,
   onAdminAddBooking,
 }) => {
-  const todayIST = getTodayISTString();
-  const currentYear = parseInt(todayIST.split('-')[0], 10);
-  const [year, setYear] = useState<number>(currentYear);
+  const [todayDate, setTodayDate] = useState<string>(getTodayISTString);
+  const [year, setYear] = useState<number>(() => {
+    return parseInt(getTodayISTString().split('-')[0], 10);
+  });
   const [slots, setSlots] = useState<PublicSlot[]>([]);
   const [adminBookings, setAdminBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Sync today's date upon mount
+  useEffect(() => {
+    const liveToday = getTodayISTString();
+    setTodayDate(liveToday);
+  }, []);
 
   // Modal / Drawer state
   const [selectedDateInfo, setSelectedDateInfo] = useState<DateAvailability | null>(null);
@@ -254,7 +261,7 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
                       }
 
                       const availability = getDateAvailability(cell.dateStr);
-                      const isToday = cell.dateStr === todayIST;
+                      const isToday = cell.dateStr === todayDate;
                       const dayOfWeek = (ci % 7); // 6 = Sunday
 
                       let cellBg = 'bg-transparent text-slate-700 hover:bg-slate-100';

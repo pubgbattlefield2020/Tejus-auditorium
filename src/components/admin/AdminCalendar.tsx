@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Booking } from '@/types';
 import { getTodayISTString } from '@/lib/time-utils';
@@ -23,7 +23,12 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   onDateClick,
   onOpenDayDrawer,
 }) => {
-  const todayIST = getTodayISTString();
+  const [todayDate, setTodayDate] = useState<string>(getTodayISTString);
+
+  useEffect(() => {
+    setTodayDate(getTodayISTString());
+  }, []);
+
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
@@ -36,7 +41,9 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
   };
 
   const handleToday = () => {
-    const [tYear, tMonth] = todayIST.split('-').map(Number);
+    const currentToday = getTodayISTString();
+    setTodayDate(currentToday);
+    const [tYear, tMonth] = currentToday.split('-').map(Number);
     onDateChange(new Date(tYear, tMonth - 1, 1));
   };
 
@@ -157,7 +164,7 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
             const dayBookings = bookings.filter(
               (b) => b.programme_date === dateStr && b.status !== 'Cancelled'
             );
-            const isToday = dateStr === todayIST;
+            const isToday = dateStr === todayDate;
             const bookingCount = dayBookings.length;
 
             // Status Styling
