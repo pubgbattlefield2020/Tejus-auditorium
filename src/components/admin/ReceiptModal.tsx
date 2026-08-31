@@ -277,7 +277,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                     Pending Balance Due
                   </td>
                   <td className="py-3 px-1 font-mono text-amber-900 text-sm text-right">
-                    ₹ {Number(booking.pending_amount).toLocaleString('en-IN')}
+                    ₹ {Number(booking.status === 'Cancelled' ? 0 : booking.pending_amount).toLocaleString('en-IN')}
                   </td>
                 </tr>
               </tbody>
@@ -469,7 +469,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                   Pending Balance Due
                 </td>
                 <td style={{ padding: '12px 8px', fontSize: '16px', fontFamily: 'monospace', fontWeight: 800, color: '#78350f', textAlign: 'right' }}>
-                  ₹ {Number(booking.pending_amount).toLocaleString('en-IN')}
+                  ₹ {Number(booking.status === 'Cancelled' ? 0 : booking.pending_amount).toLocaleString('en-IN')}
                 </td>
               </tr>
             </tbody>

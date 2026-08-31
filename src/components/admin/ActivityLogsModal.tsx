@@ -27,23 +27,37 @@ import {
   ExternalLink,
   MapPin,
   Sparkles,
+  Undo2,
+  RotateCcw,
 } from 'lucide-react';
-import { ActivityLog } from '@/types';
+import { ActivityLog, Booking } from '@/types';
 import { supabase } from '@/lib/supabase';
-import { formatDateReadable, formatTime12Hour } from '@/lib/time-utils';
+import { formatDateReadable, formatTime12Hour, hasBookingConflict } from '@/lib/time-utils';
+import { syncBookingToGoogleSheets } from '@/lib/google-sheets';
 
 interface ActivityLogsModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onRestoreSuccess?: () => void;
+  adminEmail?: string;
 }
 
-export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, onClose }) => {
+export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({
+  isOpen,
+  onClose,
+  onRestoreSuccess,
+  adminEmail = 'admin@tejusauditorium.com',
+}) => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAction, setFilterAction] = useState<string>('ALL');
   const [selectedLog, setSelectedLog] = useState<ActivityLog | null>(null);
   const [showRawJson, setShowRawJson] = useState(false);
+
+  const [undoLoadingId, setUndoLoadingId] = useState<string | null>(null);
+  const [undoErrorMessage, setUndoErrorMessage] = useState<string | null>(null);
+  const [undoSuccessMessage, setUndoSuccessMessage] = useState<string | null>(null);
 
   const fetchLogs = async () => {
     setLoading(true);
@@ -68,8 +82,107 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
       fetchLogs();
       setSelectedLog(null);
       setShowRawJson(false);
+      setUndoErrorMessage(null);
+      setUndoSuccessMessage(null);
     }
   }, [isOpen]);
+
+  const handleUndoCancellation = async (log: ActivityLog, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setUndoLoadingId(log.id);
+    setUndoErrorMessage(null);
+    setUndoSuccessMessage(null);
+
+    try {
+      // 1. Fetch current booking from DB
+      const { data: booking, error: fetchErr } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('booking_id', log.booking_id)
+        .single();
+
+      if (fetchErr || !booking) {
+        throw new Error(`Booking ${log.booking_id} could not be found.`);
+      }
+
+      if (booking.status !== 'Cancelled') {
+        setUndoSuccessMessage(`Booking ${log.booking_id} is already ${booking.status}.`);
+        setUndoLoadingId(null);
+        return;
+      }
+
+      // 2. Check for timing conflict with active bookings on that date
+      const { data: activeOnDate, error: activeErr } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('programme_date', booking.programme_date)
+        .neq('id', booking.id)
+        .is('deleted_at', null)
+        .neq('status', 'Cancelled');
+
+      if (activeErr) throw activeErr;
+
+      for (const active of activeOnDate || []) {
+        const conflict = hasBookingConflict(
+          booking.from_time,
+          booking.to_time,
+          active.from_time,
+          active.to_time
+        );
+        if (conflict.hasConflict) {
+          setUndoErrorMessage(
+            `Cannot undo cancellation: Timing (${formatTime12Hour(booking.from_time)} – ${formatTime12Hour(booking.to_time)}) conflicts with active booking ${active.booking_id} (${formatTime12Hour(active.from_time)} – ${formatTime12Hour(active.to_time)}) on ${formatDateReadable(booking.programme_date)}.`
+          );
+          setUndoLoadingId(null);
+          return;
+        }
+      }
+
+      // 3. Restore booking to Confirmed (or previous status)
+      const targetStatus = log.details?.previous_status || 'Confirmed';
+      const { data: updatedBooking, error: updateErr } = await supabase
+        .from('bookings')
+        .update({
+          status: targetStatus,
+          deleted_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', booking.id)
+        .select()
+        .single();
+
+      if (updateErr) throw updateErr;
+
+      // 4. Log RESTORE action in activity_logs
+      await supabase.from('activity_logs').insert({
+        booking_id: booking.booking_id,
+        action: 'RESTORE',
+        admin_email: adminEmail,
+        details: {
+          customer_name: booking.customer_name,
+          customer_phone: booking.customer_phone,
+          programme_date: booking.programme_date,
+          previous_status: 'Cancelled',
+          new_status: targetStatus,
+          reason: 'Undo cancellation from Activity Log',
+        },
+      });
+
+      // 5. Google Sheets sync
+      syncBookingToGoogleSheets('RESTORE', updatedBooking as Booking);
+
+      setUndoSuccessMessage(`Successfully restored booking ${log.booking_id} (${booking.customer_name}) to ${targetStatus}.`);
+      await fetchLogs();
+      if (onRestoreSuccess) {
+        onRestoreSuccess();
+      }
+    } catch (err: any) {
+      console.error('Undo cancellation error:', err);
+      setUndoErrorMessage(err.message || 'Failed to undo cancellation.');
+    } finally {
+      setUndoLoadingId(null);
+    }
+  };
 
   const formatIST = (dateStr: string) => {
     if (!dateStr) return '';
@@ -313,6 +426,39 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
             </button>
           </div>
 
+          {/* Feedback Alerts */}
+          {undoSuccessMessage && (
+            <div className="p-3 mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{undoSuccessMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUndoSuccessMessage(null)}
+                className="text-emerald-600 hover:text-emerald-800 text-xs font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {undoErrorMessage && (
+            <div className="p-3 mb-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center justify-between gap-2 shadow-2xs animate-in fade-in">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>{undoErrorMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUndoErrorMessage(null)}
+                className="text-rose-600 hover:text-rose-800 text-xs font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {/* Search & Action Filter Tabs */}
           <div className="space-y-2.5 mb-4">
             {/* Search Box */}
@@ -402,7 +548,24 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                       )}
                     </div>
 
-                    <div className="flex items-center gap-3 text-slate-400 text-[11px] self-end sm:self-center">
+                    <div className="flex items-center gap-2.5 text-slate-400 text-[11px] self-end sm:self-center flex-wrap">
+                      {log.action === 'CANCEL' && (
+                        <button
+                          type="button"
+                          onClick={(e) => handleUndoCancellation(log, e)}
+                          disabled={undoLoadingId === log.id}
+                          className="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 font-bold text-[11px] flex items-center gap-1 transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer shrink-0"
+                          title="Undo this cancellation and restore booking"
+                        >
+                          {undoLoadingId === log.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Undo2 className="w-3 h-3 text-amber-800" />
+                          )}
+                          <span>Undo</span>
+                        </button>
+                      )}
+
                       <span className="text-slate-600 font-medium">{log.admin_email || 'Admin'}</span>
                       <span>•</span>
                       <span>{formatIST(log.created_at)}</span>
@@ -522,6 +685,25 @@ export const ActivityLogsModal: React.FC<ActivityLogsModalProps> = ({ isOpen, on
                     <div>
                       Previous Status: <span className="font-semibold">{selectedLog.details?.previous_status || 'Confirmed'}</span>
                     </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-rose-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="text-[11px] text-rose-800">
+                      Need to restore this booking to active status?
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleUndoCancellation(selectedLog)}
+                      disabled={undoLoadingId === selectedLog.id}
+                      className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                    >
+                      {undoLoadingId === selectedLog.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Undo2 className="w-3.5 h-3.5" />
+                      )}
+                      <span>Undo Cancellation & Restore</span>
+                    </button>
                   </div>
                 </div>
               )}

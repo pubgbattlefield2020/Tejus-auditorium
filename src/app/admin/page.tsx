@@ -177,9 +177,15 @@ export default function AdminPage() {
   // Compute Dashboard Stats
   const dashboardStats: DashboardStats = React.useMemo(() => {
     const active = bookings.filter((b) => b.status !== 'Cancelled');
-    const totalAmount = active.reduce((acc, b) => acc + (Number(b.total_amount) || 0), 0);
-    const totalAdvance = active.reduce((acc, b) => acc + (Number(b.advance_amount) || 0), 0);
+    const cancelled = bookings.filter((b) => b.status === 'Cancelled');
+
+    // Total advance collected includes all bookings (advances are retained upon cancellation)
+    const totalAdvance = bookings.reduce((acc, b) => acc + (Number(b.advance_amount) || 0), 0);
+    // Total pending balance applies only to active bookings
     const totalPending = active.reduce((acc, b) => acc + (Number(b.pending_amount) || 0), 0);
+    // Gross revenue: active contract amounts + non-refundable advance retained from cancellations
+    const totalAmount = active.reduce((acc, b) => acc + (Number(b.total_amount) || 0), 0) +
+      cancelled.reduce((acc, b) => acc + (Number(b.advance_amount) || 0), 0);
 
     const upcomingBookings = active.filter((b) => b.programme_date >= todayIST).length;
     const currentYearMonth = todayIST.slice(0, 7);
@@ -479,10 +485,10 @@ export default function AdminPage() {
                         <span className="text-[10px] text-slate-400 block">{b.ac_type}</span>
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-slate-900 text-right">
-                        ₹ {Number(b.total_amount).toLocaleString('en-IN')}
+                        ₹ {Number(b.status === 'Cancelled' ? b.advance_amount : b.total_amount).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3 px-3 font-mono font-bold text-amber-700 text-right">
-                        ₹ {Number(b.pending_amount).toLocaleString('en-IN')}
+                        ₹ {Number(b.status === 'Cancelled' ? 0 : b.pending_amount).toLocaleString('en-IN')}
                       </td>
                       <td className="py-3 px-3 text-center">
                         <span
@@ -592,6 +598,8 @@ export default function AdminPage() {
       <ActivityLogsModal
         isOpen={isLogsModalOpen}
         onClose={() => setIsLogsModalOpen(false)}
+        onRestoreSuccess={() => fetchAdminData()}
+        adminEmail={adminEmail}
       />
     </div>
   );
