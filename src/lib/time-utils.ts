@@ -1,4 +1,4 @@
-import { SlotPeriod } from '@/types';
+import { SlotPeriod, AuditoriumArea } from '@/types';
 
 /**
  * Converts HH:mm or HH:mm:ss string to minutes from midnight
@@ -130,15 +130,37 @@ export function getTodayISTString(): string {
 }
 
 /**
- * Checks if a proposed booking time conflicts with an existing booking,
- * enforcing direct overlap checks and the mandatory 1-hour (60 minute) buffer.
+ * Checks if two auditorium areas conflict with each other.
+ * - 'Full Auditorium' conflicts with ANY area ('Ground Floor', '1st Floor', 'Full Auditorium').
+ * - Same area conflicts with itself.
+ * - 'Ground Floor' and '1st Floor' DO NOT conflict with each other.
+ */
+export function doAreasConflict(
+  area1?: AuditoriumArea | string,
+  area2?: AuditoriumArea | string
+): boolean {
+  if (!area1 || !area2) return true;
+  if (area1 === 'Full Auditorium' || area2 === 'Full Auditorium') return true;
+  return area1 === area2;
+}
+
+/**
+ * Checks if a proposed booking time and area conflicts with an existing booking,
+ * enforcing area compatibility, direct overlap checks, and the mandatory 1-hour (60 minute) buffer.
  */
 export function hasBookingConflict(
   proposedFrom: string,
   proposedTo: string,
   existingFrom: string,
-  existingTo: string
+  existingTo: string,
+  proposedArea?: AuditoriumArea | string,
+  existingArea?: AuditoriumArea | string
 ): { hasConflict: boolean; reason?: string } {
+  // If areas do not conflict (e.g. Ground Floor vs 1st Floor), no conflict!
+  if (proposedArea && existingArea && !doAreasConflict(proposedArea, existingArea)) {
+    return { hasConflict: false };
+  }
+
   const propStart = timeToMinutes(proposedFrom);
   const propEnd = timeToMinutes(proposedTo);
   const existStart = timeToMinutes(existingFrom);
@@ -151,12 +173,14 @@ export function hasBookingConflict(
     };
   }
 
+  const areaNote = existingArea ? ` (${existingArea})` : '';
+
   // Direct Overlap check
   const isOverlapping = propStart < existEnd && propEnd > existStart;
   if (isOverlapping) {
     return {
       hasConflict: true,
-      reason: `Direct overlap with existing booking (${formatTime12Hour(existingFrom)} – ${formatTime12Hour(existingTo)}).`,
+      reason: `Direct overlap with existing booking${areaNote} (${formatTime12Hour(existingFrom)} – ${formatTime12Hour(existingTo)}).`,
     };
   }
 
@@ -169,19 +193,19 @@ export function hasBookingConflict(
       const nextAllowed = minutesToTimeString(existEnd + bufferMs);
       return {
         hasConflict: true,
-        reason: `Mandatory 1-hour buffer required. Booking can start at or after ${formatTime12Hour(nextAllowed)}.`,
+        reason: `Mandatory 1-hour buffer required after existing booking${areaNote}. Booking can start at or after ${formatTime12Hour(nextAllowed)}.`,
       };
     }
     if (propEnd <= existStart && propEnd + bufferMs > existStart) {
       const maxAllowedEnd = minutesToTimeString(existStart - bufferMs);
       return {
         hasConflict: true,
-        reason: `Mandatory 1-hour buffer required. Booking must end at or before ${formatTime12Hour(maxAllowedEnd)}.`,
+        reason: `Mandatory 1-hour buffer required before existing booking${areaNote}. Booking must end at or before ${formatTime12Hour(maxAllowedEnd)}.`,
       };
     }
     return {
       hasConflict: true,
-      reason: `Mandatory 1-hour buffer between bookings is violated.`,
+      reason: `Mandatory 1-hour buffer between bookings${areaNote} is violated.`,
     };
   }
 
@@ -189,18 +213,19 @@ export function hasBookingConflict(
 }
 
 /**
- * Analyzes availability for a given date given existing bookings
+ * Analyzes availability for a given date given existing bookings and proposed area
  */
 export function getAvailabilityConflictPreview(
   dateStr: string,
   fromTime: string,
   toTime: string,
-  existingBookings: Array<{ id?: string; from_time: string; to_time: string; customer_name?: string }>,
-  excludeBookingId?: string
+  existingBookings: Array<{ id?: string; from_time: string; to_time: string; customer_name?: string; auditorium_area?: AuditoriumArea | string }>,
+  excludeBookingId?: string,
+  proposedArea?: AuditoriumArea | string
 ): {
   isValid: boolean;
   message?: string;
-  existingSlots: Array<{ from: string; to: string; bufferTo: string; customer?: string }>;
+  existingSlots: Array<{ from: string; to: string; bufferTo: string; customer?: string; area?: string }>;
   suggestedNextAvailable?: string;
 } {
   const filtered = existingBookings.filter((b) => !excludeBookingId || b.id !== excludeBookingId);
@@ -213,6 +238,7 @@ export function getAvailabilityConflictPreview(
       to: formatTime12Hour(b.to_time),
       bufferTo: formatTime12Hour(bufferEnd),
       customer: b.customer_name,
+      area: b.auditorium_area,
     };
   });
 
@@ -233,7 +259,7 @@ export function getAvailabilityConflictPreview(
   }
 
   for (const b of filtered) {
-    const conflict = hasBookingConflict(fromTime, toTime, b.from_time, b.to_time);
+    const conflict = hasBookingConflict(fromTime, toTime, b.from_time, b.to_time, proposedArea, b.auditorium_area);
     if (conflict.hasConflict) {
       const existEnd = timeToMinutes(b.to_time);
       const nextAvail = minutesToTimeString(Math.min(1439, existEnd + 60));

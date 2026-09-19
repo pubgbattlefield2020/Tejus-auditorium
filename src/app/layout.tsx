@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { ToastProvider } from "@/components/common/Toast";
 
 export const metadata: Metadata = {
   title: "Tejus Auditorium — Booking & Availability",
@@ -27,8 +28,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="overflow-x-hidden max-w-full">
       <body className="antialiased selection:bg-blue-600 selection:text-white overflow-x-hidden max-w-full min-h-screen">
-        <div className="min-h-screen flex flex-col justify-between overflow-x-hidden max-w-full">
-          <main className="flex-1 overflow-x-hidden max-w-full">{children}</main>
+        <ToastProvider>
+          <div className="min-h-screen flex flex-col justify-between overflow-x-hidden max-w-full">
+            <main className="flex-1 overflow-x-hidden max-w-full">{children}</main>
           <footer className="no-print py-4 text-center text-xs text-slate-400 border-t border-slate-200/60 bg-white/40">
             © {new Date().getFullYear()} Tejus Auditorium. All rights reserved. • Booking Enquiries:{" "}
             <a href="tel:9447241559" className="font-medium text-slate-600 hover:text-blue-600 underline">
@@ -36,7 +38,8 @@ export default function RootLayout({
             </a>
           </footer>
         </div>
-      </body>
-    </html>
-  );
+      </ToastProvider>
+    </body>
+  </html>
+);
 }

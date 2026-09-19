@@ -38,9 +38,9 @@ export const DateDetailsModal: React.FC<DateDetailsModalProps> = ({
   if (!isOpen || !dateInfo) return null;
 
   const formattedDate = formatDateReadable(dateInfo.date);
-  const isFullyBooked = dateInfo.hasMorningBooking && dateInfo.hasEveningBooking;
-  const isAvailable = !dateInfo.hasMorningBooking && !dateInfo.hasEveningBooking;
-  const isPartiallyBooked = !isFullyBooked && !isAvailable;
+  const isFullyBooked = dateInfo.status === 'fully_booked';
+  const isAvailable = dateInfo.status === 'available';
+  const isPartiallyBooked = dateInfo.status === 'single_slot';
 
   const whatsappMessage = encodeURIComponent(
     `Hello, I would like to enquire about booking Tejus Auditorium for the date: ${formattedDate}.`
@@ -100,14 +100,14 @@ export const DateDetailsModal: React.FC<DateDetailsModalProps> = ({
           <div className="text-xs font-semibold">
             {isAvailable && 'Full Day Available for Booking'}
             {isFullyBooked && 'Fully Booked for this Date'}
-            {isPartiallyBooked && 'Partially Booked — Slot Available'}
+            {isPartiallyBooked && 'Partially Booked — Slot / Floor Available'}
           </div>
         </div>
 
         {/* Slots Breakdown */}
         <div className="space-y-3 mb-6">
           {/* Morning Slot */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Morning Slot</span>
               <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
@@ -117,23 +117,41 @@ export const DateDetailsModal: React.FC<DateDetailsModalProps> = ({
                     {formatTime12Hour(dateInfo.morningSlot.from_time)} – {formatTime12Hour(dateInfo.morningSlot.to_time)}
                   </span>
                 ) : (
-                  <span className="text-emerald-600 font-medium">Available</span>
+                  <span className="text-emerald-600 font-medium">9:00 AM – 1:00 PM</span>
+                )}
+              </div>
+              {/* Floor Status Description */}
+              <div className="text-[11px] font-medium text-slate-600 mt-1">
+                {dateInfo.morningDetails?.isFullyBooked ? (
+                  <span className="text-rose-600 font-semibold">Both Floors Booked</span>
+                ) : dateInfo.morningDetails?.hasGroundFloor ? (
+                  <span>Ground Floor Booked • <strong className="text-emerald-700">1st Floor Available</strong></span>
+                ) : dateInfo.morningDetails?.hasFirstFloor ? (
+                  <span>1st Floor Booked • <strong className="text-emerald-700">Ground Floor Available</strong></span>
+                ) : (
+                  <span className="text-emerald-600">Full Slot Available (Ground & 1st Floor)</span>
                 )}
               </div>
             </div>
             <span
-              className={`text-xs px-3 py-1 rounded-full font-bold ${
-                dateInfo.morningSlot
+              className={`text-xs px-3 py-1 rounded-full font-bold shrink-0 ${
+                dateInfo.morningDetails?.isFullyBooked
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                  : dateInfo.morningDetails?.isPartiallyBooked
                   ? 'bg-amber-100 text-amber-800 border border-amber-300'
                   : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
               }`}
             >
-              {dateInfo.morningSlot ? 'Booked' : 'Available'}
+              {dateInfo.morningDetails?.isFullyBooked
+                ? 'Full'
+                : dateInfo.morningDetails?.isPartiallyBooked
+                ? 'Partial'
+                : 'Available'}
             </span>
           </div>
 
           {/* Evening Slot */}
-          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between">
+          <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Evening Slot</span>
               <div className="mt-1 flex items-center gap-1.5 text-sm font-semibold text-slate-800">
@@ -143,18 +161,36 @@ export const DateDetailsModal: React.FC<DateDetailsModalProps> = ({
                     {formatTime12Hour(dateInfo.eveningSlot.from_time)} – {formatTime12Hour(dateInfo.eveningSlot.to_time)}
                   </span>
                 ) : (
-                  <span className="text-emerald-600 font-medium">Available</span>
+                  <span className="text-emerald-600 font-medium">3:00 PM – 7:00 PM</span>
+                )}
+              </div>
+              {/* Floor Status Description */}
+              <div className="text-[11px] font-medium text-slate-600 mt-1">
+                {dateInfo.eveningDetails?.isFullyBooked ? (
+                  <span className="text-rose-600 font-semibold">Both Floors Booked</span>
+                ) : dateInfo.eveningDetails?.hasGroundFloor ? (
+                  <span>Ground Floor Booked • <strong className="text-emerald-700">1st Floor Available</strong></span>
+                ) : dateInfo.eveningDetails?.hasFirstFloor ? (
+                  <span>1st Floor Booked • <strong className="text-emerald-700">Ground Floor Available</strong></span>
+                ) : (
+                  <span className="text-emerald-600">Full Slot Available (Ground & 1st Floor)</span>
                 )}
               </div>
             </div>
             <span
-              className={`text-xs px-3 py-1 rounded-full font-bold ${
-                dateInfo.eveningSlot
+              className={`text-xs px-3 py-1 rounded-full font-bold shrink-0 ${
+                dateInfo.eveningDetails?.isFullyBooked
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                  : dateInfo.eveningDetails?.isPartiallyBooked
                   ? 'bg-amber-100 text-amber-800 border border-amber-300'
                   : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
               }`}
             >
-              {dateInfo.eveningSlot ? 'Booked' : 'Available'}
+              {dateInfo.eveningDetails?.isFullyBooked
+                ? 'Full'
+                : dateInfo.eveningDetails?.isPartiallyBooked
+                ? 'Partial'
+                : 'Available'}
             </span>
           </div>
         </div>

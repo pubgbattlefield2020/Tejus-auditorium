@@ -70,6 +70,7 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
             to_time: b.to_time,
             slot_period: b.slot_period,
             status: b.status,
+            auditorium_area: b.auditorium_area,
           }));
           setSlots(mappedSlots);
         }
@@ -115,25 +116,52 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
 
   const getDateAvailability = (dateStr: string): DateAvailability => {
     const daySlots = slots.filter((s) => s.programme_date === dateStr);
-    const morningSlot = daySlots.find((s) => s.slot_period === 'Morning') || null;
-    const eveningSlot = daySlots.find((s) => s.slot_period === 'Evening') || null;
+    const morningSlots = daySlots.filter((s) => s.slot_period === 'Morning');
+    const eveningSlots = daySlots.filter((s) => s.slot_period === 'Evening');
 
-    const hasMorningBooking = !!morningSlot;
-    const hasEveningBooking = !!eveningSlot;
+    const isMorningFull =
+      morningSlots.some((s) => s.auditorium_area === 'Full Auditorium') ||
+      (morningSlots.some((s) => s.auditorium_area === 'Ground Floor') &&
+        morningSlots.some((s) => s.auditorium_area === '1st Floor'));
+
+    const isEveningFull =
+      eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium') ||
+      (eveningSlots.some((s) => s.auditorium_area === 'Ground Floor') &&
+        eveningSlots.some((s) => s.auditorium_area === '1st Floor'));
 
     let status: 'available' | 'single_slot' | 'fully_booked' = 'available';
-    if (hasMorningBooking && hasEveningBooking) {
+    if (daySlots.length >= 2) {
       status = 'fully_booked';
-    } else if (hasMorningBooking || hasEveningBooking) {
+    } else if (daySlots.length === 1) {
       status = 'single_slot';
     }
 
+    const morningDetails = {
+      hasGroundFloor: morningSlots.some((s) => s.auditorium_area === 'Ground Floor'),
+      hasFirstFloor: morningSlots.some((s) => s.auditorium_area === '1st Floor'),
+      hasFullAuditorium: morningSlots.some((s) => s.auditorium_area === 'Full Auditorium'),
+      isFullyBooked: isMorningFull,
+      isPartiallyBooked: morningSlots.length > 0 && !isMorningFull,
+      slots: morningSlots,
+    };
+
+    const eveningDetails = {
+      hasGroundFloor: eveningSlots.some((s) => s.auditorium_area === 'Ground Floor'),
+      hasFirstFloor: eveningSlots.some((s) => s.auditorium_area === '1st Floor'),
+      hasFullAuditorium: eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium'),
+      isFullyBooked: isEveningFull,
+      isPartiallyBooked: eveningSlots.length > 0 && !isEveningFull,
+      slots: eveningSlots,
+    };
+
     return {
       date: dateStr,
-      hasMorningBooking,
-      hasEveningBooking,
-      morningSlot,
-      eveningSlot,
+      hasMorningBooking: morningSlots.length > 0,
+      hasEveningBooking: eveningSlots.length > 0,
+      morningDetails,
+      eveningDetails,
+      morningSlot: morningSlots[0] || null,
+      eveningSlot: eveningSlots[0] || null,
       allSlots: daySlots,
       status,
     };

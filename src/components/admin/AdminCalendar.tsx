@@ -167,7 +167,7 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
             const isToday = dateStr === todayDate;
             const bookingCount = dayBookings.length;
 
-            // Status Styling
+            // Status Styling: 2+ bookings is Red (e.g. Ground Floor + 1st Floor), 1 booking is Amber
             let bgStyle = 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200/90 shadow-2xs';
             if (bookingCount >= 2) {
               bgStyle = 'bg-[#EF4444] hover:bg-[#DC2626] text-white border-transparent shadow-md shadow-red-500/20';
@@ -191,21 +191,21 @@ export const AdminCalendar: React.FC<AdminCalendarProps> = ({
                 className={`relative aspect-square sm:aspect-4/3 rounded-xl sm:rounded-2xl border p-1 sm:p-2 flex flex-col items-center justify-center transition-all group cursor-pointer ${bgStyle} ${
                   isToday ? 'ring-2 ring-blue-600 ring-offset-1 sm:ring-offset-2' : ''
                 }`}
-                title={`${dateStr}: ${bookingCount} bookings. Click to manage.`}
+                title={`${dateStr}: ${bookingCount} booking${bookingCount === 1 ? '' : 's'}${bookingCount >= 2 ? ' (Fully Booked)' : ''}. Click to manage.`}
               >
                 <span className={`text-xs sm:text-base font-bold ${!isCurrentMonth ? 'text-slate-300' : ''}`}>
                   {day}
                 </span>
 
                 {/* Sub-label for desktop */}
-                {isCurrentMonth && bookingCount === 1 && (
-                  <span className="hidden sm:block text-[9px] font-bold uppercase tracking-wider mt-0.5 opacity-90">
-                    {dayBookings[0]?.slot_period || '1 Slot'}
-                  </span>
-                )}
                 {isCurrentMonth && bookingCount >= 2 && (
                   <span className="hidden sm:block text-[9px] font-bold uppercase tracking-wider mt-0.5 opacity-90">
                     Full
+                  </span>
+                )}
+                {isCurrentMonth && bookingCount === 1 && (
+                  <span className="hidden sm:block text-[9px] font-bold uppercase tracking-wider mt-0.5 opacity-90">
+                    {dayBookings[0]?.slot_period || '1 Slot'}
                   </span>
                 )}
               </button>

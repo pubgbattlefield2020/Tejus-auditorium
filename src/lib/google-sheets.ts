@@ -20,7 +20,7 @@ export async function syncBookingToGoogleSheets(
     const toFormatted = booking.to_time ? formatTime12Hour(booking.to_time.slice(0, 5)) : '';
     const timeSlotStr = fromFormatted && toFormatted ? `${fromFormatted} – ${toFormatted}` : '';
 
-    let statusDisplay = booking.status || 'Confirmed';
+    let statusDisplay: string = booking.status || 'Confirmed';
     if (action === 'DELETE') {
       statusDisplay = 'Deleted (Trash)';
     } else if (action === 'PERMANENT_DELETE') {

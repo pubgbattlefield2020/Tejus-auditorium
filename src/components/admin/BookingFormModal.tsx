@@ -198,23 +198,27 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
     let active = true;
     setLoadingDateBookings(true);
 
-    supabase
-      .from('bookings')
-      .select('*')
-      .eq('programme_date', programmeDate)
-      .is('deleted_at', null)
-      .neq('status', 'Cancelled')
-      .then(({ data, error }) => {
+    const fetchBookings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('programme_date', programmeDate)
+          .is('deleted_at', null)
+          .neq('status', 'Cancelled');
+
         if (active) {
           if (!error && data) {
             setDateBookings(data as Booking[]);
           }
           setLoadingDateBookings(false);
         }
-      })
-      .catch(() => {
+      } catch {
         if (active) setLoadingDateBookings(false);
-      });
+      }
+    };
+
+    fetchBookings();
 
     return () => {
       active = false;
@@ -262,9 +266,10 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
       fromTime,
       toTime,
       mergedBookings,
-      initialBooking?.id
+      initialBooking?.id,
+      auditoriumArea
     );
-  }, [programmeDate, fromTime, toTime, allBookings, existingBookingsOnDate, dateBookings, initialBooking?.id]);
+  }, [programmeDate, fromTime, toTime, auditoriumArea, allBookings, existingBookingsOnDate, dateBookings, initialBooking?.id]);
 
   // Time preset helper
   const setTimePreset = (from: string, to: string) => {
@@ -278,7 +283,8 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
   const numAdvance = Number(advanceAmount) || 0;
   const isAmountValid = numTotal >= 0 && numAdvance >= 0 && numAdvance <= numTotal;
   const isCustomerNameFilled = customerName.trim().length > 0;
-  const isPhoneValid = isValidIndianMobile(customerPhone);
+  // Mobile is optional, but if provided, must be valid 10-digit Indian mobile
+  const isPhoneValid = !customerPhone.trim() || isValidIndianMobile(customerPhone);
   const isConflictFree = status === 'Cancelled' || conflictAnalysis.isValid;
 
   // Final Programme Type String
@@ -325,8 +331,8 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
       setFormError('Please enter the customer name.');
       return;
     }
-    if (!isPhoneValid) {
-      setFormError('Please enter a valid 10-digit Indian mobile number (e.g. 9447241559).');
+    if (customerPhone.trim() && !isValidIndianMobile(customerPhone)) {
+      setFormError('Please enter a valid 10-digit Indian mobile number (e.g. 9447241559), or leave it blank.');
       return;
     }
     if (!isTimeOrderValid) {
@@ -361,7 +367,8 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
             fromTime,
             toTime,
             freshLiveBookings as Booking[],
-            initialBooking?.id
+            initialBooking?.id,
+            auditoriumArea
           );
           if (!liveConflict.isValid) {
             setFormError(liveConflict.message || 'Time conflict detected with an existing booking or buffer.');
@@ -575,11 +582,11 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
               </div>
             </div>
 
-            {/* Mobile Number Field with Real-Time Validation Feedback */}
+            {/* Mobile Number Field (Optional) with Real-Time Validation Feedback */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Mobile Number <span className="text-blue-600">*</span>
+                  Mobile Number <span className="text-slate-400 text-[10px] font-normal">(Optional)</span>
                 </label>
                 {customerPhone && (
                   <span
@@ -597,11 +604,10 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   type="tel"
-                  required
                   maxLength={13}
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="e.g. 9847123456"
+                  placeholder="10-digit mobile (optional)"
                   className={`w-full pl-9 pr-3 py-2.5 bg-white border rounded-xl text-sm font-medium text-slate-900 focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all font-mono ${
                     customerPhone
                       ? isPhoneValid
@@ -792,7 +798,7 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
                         {conflictAnalysis.existingSlots.map((s, idx) => (
                           <li key={idx} className="flex items-center justify-between">
                             <span>
-                              • {s.from} – {s.to} {s.customer ? `(${s.customer})` : ''}
+                              • {s.from} – {s.to} {s.customer ? `(${s.customer})` : ''} {s.area ? `[${s.area}]` : ''}
                             </span>
                             <span className="font-semibold text-amber-700">1h Buffer until: {s.bufferTo}</span>
                           </li>
@@ -814,16 +820,21 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Auditorium Area */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                Auditorium Area <span className="text-slate-400 text-[10px] font-normal">(Informational)</span>
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {(['Ground Floor', 'Full Auditorium'] as AuditoriumArea[]).map((area) => (
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-600">
+                  Auditorium Area
+                </label>
+                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
+                  {auditoriumArea}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+                {(['Ground Floor', '1st Floor', 'Full Auditorium'] as AuditoriumArea[]).map((area) => (
                   <button
                     key={area}
                     type="button"
                     onClick={() => setAuditoriumArea(area)}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                    className={`py-2 px-1.5 sm:px-2 rounded-xl text-[11px] sm:text-xs font-bold border transition-all cursor-pointer text-center ${
                       auditoriumArea === area
                         ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'

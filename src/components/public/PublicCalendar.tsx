@@ -46,8 +46,11 @@ export const PublicCalendar: React.FC<PublicCalendarProps> = ({
       const firstDayOfMonth = new Date(year, month, 1);
       const lastDayOfMonth = new Date(year, month + 1, 0);
 
-      const startDateStr = new Date(year, month, 1 - firstDayOfMonth.getDay()).toISOString().split('T')[0];
-      const endDateStr = new Date(year, month, lastDayOfMonth.getDate() + (6 - lastDayOfMonth.getDay())).toISOString().split('T')[0];
+      const toYMD = (d: Date) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+      const startDateStr = toYMD(new Date(year, month, 1 - firstDayOfMonth.getDay()));
+      const endDateStr = toYMD(new Date(year, month, lastDayOfMonth.getDate() + (6 - lastDayOfMonth.getDay())));
 
       const { data, error } = await supabase.rpc('get_public_calendar', {
         p_start_date: startDateStr,
@@ -126,25 +129,52 @@ export const PublicCalendar: React.FC<PublicCalendarProps> = ({
 
   const getDateAvailability = (dateStr: string): DateAvailability => {
     const daySlots = slots.filter((s) => s.programme_date === dateStr);
-    const morningSlot = daySlots.find((s) => s.slot_period === 'Morning') || null;
-    const eveningSlot = daySlots.find((s) => s.slot_period === 'Evening') || null;
+    const morningSlots = daySlots.filter((s) => s.slot_period === 'Morning');
+    const eveningSlots = daySlots.filter((s) => s.slot_period === 'Evening');
 
-    const hasMorningBooking = !!morningSlot;
-    const hasEveningBooking = !!eveningSlot;
+    const isMorningFull =
+      morningSlots.some((s) => s.auditorium_area === 'Full Auditorium') ||
+      (morningSlots.some((s) => s.auditorium_area === 'Ground Floor') &&
+        morningSlots.some((s) => s.auditorium_area === '1st Floor'));
+
+    const isEveningFull =
+      eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium') ||
+      (eveningSlots.some((s) => s.auditorium_area === 'Ground Floor') &&
+        eveningSlots.some((s) => s.auditorium_area === '1st Floor'));
 
     let status: 'available' | 'single_slot' | 'fully_booked' = 'available';
-    if (hasMorningBooking && hasEveningBooking) {
+    if (daySlots.length >= 2) {
       status = 'fully_booked';
-    } else if (hasMorningBooking || hasEveningBooking) {
+    } else if (daySlots.length === 1) {
       status = 'single_slot';
     }
 
+    const morningDetails = {
+      hasGroundFloor: morningSlots.some((s) => s.auditorium_area === 'Ground Floor'),
+      hasFirstFloor: morningSlots.some((s) => s.auditorium_area === '1st Floor'),
+      hasFullAuditorium: morningSlots.some((s) => s.auditorium_area === 'Full Auditorium'),
+      isFullyBooked: isMorningFull,
+      isPartiallyBooked: morningSlots.length > 0 && !isMorningFull,
+      slots: morningSlots,
+    };
+
+    const eveningDetails = {
+      hasGroundFloor: eveningSlots.some((s) => s.auditorium_area === 'Ground Floor'),
+      hasFirstFloor: eveningSlots.some((s) => s.auditorium_area === '1st Floor'),
+      hasFullAuditorium: eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium'),
+      isFullyBooked: isEveningFull,
+      isPartiallyBooked: eveningSlots.length > 0 && !isEveningFull,
+      slots: eveningSlots,
+    };
+
     return {
       date: dateStr,
-      hasMorningBooking,
-      hasEveningBooking,
-      morningSlot,
-      eveningSlot,
+      hasMorningBooking: morningSlots.length > 0,
+      hasEveningBooking: eveningSlots.length > 0,
+      morningDetails,
+      eveningDetails,
+      morningSlot: morningSlots[0] || null,
+      eveningSlot: eveningSlots[0] || null,
       allSlots: daySlots,
       status,
     };
@@ -264,7 +294,11 @@ export const PublicCalendar: React.FC<PublicCalendarProps> = ({
                   {/* Indicator for desktop */}
                   {isCurrentMonth && availability.status === 'single_slot' && (
                     <span className="hidden sm:block text-[9px] font-bold uppercase tracking-wider mt-0.5 opacity-90">
-                      {availability.morningSlot ? 'Morning' : 'Evening'}
+                      {availability.morningDetails?.isFullyBooked
+                        ? 'Morning'
+                        : availability.eveningDetails?.isFullyBooked
+                        ? 'Evening'
+                        : 'Partial'}
                     </span>
                   )}
                   {isCurrentMonth && availability.status === 'fully_booked' && (

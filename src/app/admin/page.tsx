@@ -32,9 +32,11 @@ import { ActivityLogsModal } from '@/components/admin/ActivityLogsModal';
 import { YearlyCalendar } from '@/components/public/YearlyCalendar';
 import { formatDateReadable, formatTime12Hour, getTodayISTString } from '@/lib/time-utils';
 import { syncBookingToGoogleSheets, syncAllBookingsToGoogleSheets } from '@/lib/google-sheets';
+import { useToast } from '@/components/common/Toast';
 
 export default function AdminPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [todayIST, setTodayIST] = useState<string>(getTodayISTString);
 
   // Auth State
@@ -252,15 +254,16 @@ export default function AdminPage() {
       syncBookingToGoogleSheets('DELETE', booking);
 
       fetchAdminData();
+      showToast('success', `Booking ${booking.booking_id} (${booking.customer_name}) moved to Trash.`, 'Moved to Trash');
     } catch (err: any) {
-      alert(err.message || 'Failed to move booking to trash.');
+      showToast('error', err.message || 'Failed to move booking to trash.', 'Delete Error');
     }
   };
 
   const handleSyncAllToSheets = async () => {
     const webhookUrl = process.env.NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL;
     if (!webhookUrl) {
-      alert('Google Sheet Webhook URL is not configured yet.\n\nPlease follow the simple steps in GOOGLE_SHEETS_SETUP.md and add NEXT_PUBLIC_GOOGLE_SHEET_WEBHOOK_URL to your environment variables.');
+      showToast('error', 'Google Sheet Webhook URL is not configured yet. Check GOOGLE_SHEETS_SETUP.md.', 'Webhook Not Found');
       return;
     }
 
@@ -268,12 +271,12 @@ export default function AdminPage() {
     try {
       const res = await syncAllBookingsToGoogleSheets(bookings);
       if (res.success) {
-        alert(`Successfully synced ${res.count} bookings to your Google Sheet!`);
+        showToast('success', `Successfully synced ${res.count} bookings to your Google Sheet!`, 'Sheets Synced');
       } else {
-        alert('Failed to sync to Google Sheet. Please check your Webhook URL.');
+        showToast('error', 'Failed to sync to Google Sheet. Please check your Webhook URL.', 'Sync Failed');
       }
     } catch (err: any) {
-      alert(err.message || 'Error syncing to Google Sheet.');
+      showToast('error', err.message || 'Error syncing to Google Sheet.', 'Sync Error');
     } finally {
       setSyncingSheets(false);
     }
@@ -561,6 +564,7 @@ export default function AdminPage() {
             const filtered = prev.filter((b) => b.id !== savedBooking.id);
             return [savedBooking, ...filtered];
           });
+          showToast('success', `Booking ${savedBooking.booking_id} (${savedBooking.customer_name}) saved successfully.`, 'Booking Saved');
           fetchAdminData();
         }}
         initialDate={selectedDateForBooking}

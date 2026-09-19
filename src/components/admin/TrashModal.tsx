@@ -6,6 +6,7 @@ import { Booking } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { formatDateReadable, formatTime12Hour, hasBookingConflict } from '@/lib/time-utils';
 import { syncBookingToGoogleSheets } from '@/lib/google-sheets';
+import { useToast } from '@/components/common/Toast';
 
 interface TrashModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ export const TrashModal: React.FC<TrashModalProps> = ({
   onEditBooking,
   adminEmail = 'admin@tejusauditorium.com',
 }) => {
+  const { showToast } = useToast();
   const [deletedBookings, setDeletedBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
@@ -78,12 +80,14 @@ export const TrashModal: React.FC<TrashModalProps> = ({
           booking.from_time,
           booking.to_time,
           active.from_time,
-          active.to_time
+          active.to_time,
+          booking.auditorium_area,
+          active.auditorium_area
         );
         if (conflict.hasConflict) {
-          setErrorMessage(
-            `This booking cannot be restored because its timing (${formatTime12Hour(booking.from_time)} – ${formatTime12Hour(booking.to_time)}) conflicts with active booking ${active.booking_id} (${formatTime12Hour(active.from_time)} – ${formatTime12Hour(active.to_time)}) on ${formatDateReadable(booking.programme_date)}. Please edit the timing first.`
-          );
+          const msg = `This booking cannot be restored because its timing (${formatTime12Hour(booking.from_time)} – ${formatTime12Hour(booking.to_time)}) conflicts with active booking ${active.booking_id} (${active.auditorium_area}, ${formatTime12Hour(active.from_time)} – ${formatTime12Hour(active.to_time)}) on ${formatDateReadable(booking.programme_date)}. Please edit the timing first.`;
+          setErrorMessage(msg);
+          showToast('error', msg, 'Restore Conflict');
           setActionLoadingId(null);
           return;
         }
@@ -112,11 +116,14 @@ export const TrashModal: React.FC<TrashModalProps> = ({
       syncBookingToGoogleSheets('RESTORE', { ...booking, status: 'Confirmed', deleted_at: null });
 
       setSuccessMessage(`Booking ${booking.booking_id} restored successfully.`);
+      showToast('success', `Booking ${booking.booking_id} (${booking.customer_name}) restored.`, 'Restored');
       fetchDeleted();
       onRestoreSuccess();
     } catch (err: any) {
       console.error('Restore error:', err);
-      setErrorMessage(err.message || 'Failed to restore booking due to database validation conflict.');
+      const msg = err.message || 'Failed to restore booking due to database validation conflict.';
+      setErrorMessage(msg);
+      showToast('error', msg, 'Restore Error');
     } finally {
       setActionLoadingId(null);
     }
@@ -152,11 +159,14 @@ export const TrashModal: React.FC<TrashModalProps> = ({
       syncBookingToGoogleSheets('PERMANENT_DELETE', booking);
 
       setSuccessMessage(`Booking ${booking.booking_id} permanently deleted.`);
+      showToast('success', `Booking ${booking.booking_id} permanently deleted.`, 'Deleted');
       fetchDeleted();
       onRestoreSuccess();
     } catch (err: any) {
       console.error('Permanent delete error:', err);
-      setErrorMessage(err.message || 'Failed to permanently delete booking.');
+      const msg = err.message || 'Failed to permanently delete booking.';
+      setErrorMessage(msg);
+      showToast('error', msg, 'Delete Error');
     } finally {
       setActionLoadingId(null);
     }

@@ -104,9 +104,20 @@ export const AdminDayDrawer: React.FC<AdminDayDrawerProps> = ({
                       <span className="font-bold text-blue-800 bg-blue-100/70 px-2 py-0.5 rounded-full text-[10px]">
                         {b.slot_period} Slot
                       </span>
+                      <span
+                        className={`font-bold px-2 py-0.5 rounded-full text-[10px] ${
+                          b.auditorium_area === 'Full Auditorium'
+                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                            : b.auditorium_area === '1st Floor'
+                            ? 'bg-indigo-100 text-indigo-800 border border-indigo-200'
+                            : 'bg-sky-100 text-sky-800 border border-sky-200'
+                        }`}
+                      >
+                        {b.auditorium_area}
+                      </span>
                     </div>
                     <div className="text-xs text-slate-500 mt-1">
-                      Event: <span className="font-semibold text-slate-800">{b.programme_type}</span> ({b.auditorium_area}, {b.ac_type})
+                      Event: <span className="font-semibold text-slate-800">{b.programme_type}</span> ({b.ac_type})
                     </div>
                     <div className="text-xs font-bold text-slate-900 mt-1">
                       Total: ₹{Number(b.total_amount).toLocaleString('en-IN')}{' '}
@@ -191,7 +202,7 @@ export const AdminDayDrawer: React.FC<AdminDayDrawerProps> = ({
             </button>
           ) : (
             <span className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
-              Fully Booked (2 Slots)
+              Fully Booked (All Areas Reserved)
             </span>
           )}
         </div>

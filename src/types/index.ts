@@ -1,7 +1,7 @@
 export type SlotPeriod = 'Morning' | 'Evening';
 export type BookingStatus = 'Confirmed' | 'Cancelled' | 'Completed';
 export type ACType = 'AC' | 'Non-AC';
-export type AuditoriumArea = 'Ground Floor' | 'Full Auditorium';
+export type AuditoriumArea = 'Ground Floor' | '1st Floor' | 'Full Auditorium';
 
 export interface Booking {
   id: string;
@@ -35,12 +35,24 @@ export interface PublicSlot {
   to_time: string;
   slot_period: SlotPeriod;
   status: BookingStatus;
+  auditorium_area?: AuditoriumArea;
+}
+
+export interface SlotAreaDetails {
+  hasGroundFloor: boolean;
+  hasFirstFloor: boolean;
+  hasFullAuditorium: boolean;
+  isFullyBooked: boolean; // hasFullAuditorium || (hasGroundFloor && hasFirstFloor)
+  isPartiallyBooked: boolean;
+  slots: PublicSlot[];
 }
 
 export interface DateAvailability {
   date: string; // YYYY-MM-DD
   hasMorningBooking: boolean;
   hasEveningBooking: boolean;
+  morningDetails?: SlotAreaDetails;
+  eveningDetails?: SlotAreaDetails;
   morningSlot?: PublicSlot | null;
   eveningSlot?: PublicSlot | null;
   allSlots: PublicSlot[];
