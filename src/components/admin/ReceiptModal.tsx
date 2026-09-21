@@ -266,18 +266,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
                 </tr>
                 <tr className="bg-emerald-50/60">
                   <td className="py-2.5 px-1 font-semibold text-emerald-900">
-                    Advance Payment Received
+                    {Number(booking.pending_amount) <= 0 ? 'Total Payment Received (Fully Paid)' : 'Advance Payment Received'}
                   </td>
                   <td className="py-2.5 px-1 font-mono font-bold text-emerald-800 text-right">
                     ₹ {Number(booking.advance_amount).toLocaleString('en-IN')}
                   </td>
                 </tr>
-                <tr className="bg-amber-50/60 font-bold">
-                  <td className="py-3 px-1 text-amber-950 text-sm">
+                <tr className={Number(booking.pending_amount) <= 0 ? 'bg-emerald-50/30 font-bold' : 'bg-amber-50/60 font-bold'}>
+                  <td className={`py-3 px-1 text-sm ${Number(booking.pending_amount) <= 0 ? 'text-emerald-950' : 'text-amber-950'}`}>
                     Pending Balance Due
                   </td>
-                  <td className="py-3 px-1 font-mono text-amber-900 text-sm text-right">
+                  <td className={`py-3 px-1 font-mono text-sm text-right ${Number(booking.pending_amount) <= 0 ? 'text-emerald-800' : 'text-amber-900'}`}>
                     ₹ {Number(booking.status === 'Cancelled' ? 0 : booking.pending_amount).toLocaleString('en-IN')}
+                    {Number(booking.pending_amount) <= 0 && <span className="text-[10px] text-emerald-600 font-sans ml-1">(Nil)</span>}
                   </td>
                 </tr>
               </tbody>
@@ -458,18 +459,19 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               </tr>
               <tr style={{ backgroundColor: '#ecfdf5' }}>
                 <td style={{ padding: '10px 8px', fontSize: '13px', fontWeight: 700, color: '#065f46' }}>
-                  Advance Payment Received
+                  {Number(booking.pending_amount) <= 0 ? 'Total Payment Received (Fully Paid)' : 'Advance Payment Received'}
                 </td>
                 <td style={{ padding: '10px 8px', fontSize: '14px', fontFamily: 'monospace', fontWeight: 700, color: '#065f46', textAlign: 'right' }}>
                   ₹ {Number(booking.advance_amount).toLocaleString('en-IN')}
                 </td>
               </tr>
-              <tr style={{ backgroundColor: '#fef3c7' }}>
-                <td style={{ padding: '12px 8px', fontSize: '14px', fontWeight: 800, color: '#78350f' }}>
+              <tr style={{ backgroundColor: Number(booking.pending_amount) <= 0 ? '#f0fdf4' : '#fef3c7' }}>
+                <td style={{ padding: '12px 8px', fontSize: '14px', fontWeight: 800, color: Number(booking.pending_amount) <= 0 ? '#166534' : '#78350f' }}>
                   Pending Balance Due
                 </td>
-                <td style={{ padding: '12px 8px', fontSize: '16px', fontFamily: 'monospace', fontWeight: 800, color: '#78350f', textAlign: 'right' }}>
+                <td style={{ padding: '12px 8px', fontSize: '16px', fontFamily: 'monospace', fontWeight: 800, color: Number(booking.pending_amount) <= 0 ? '#166534' : '#78350f', textAlign: 'right' }}>
                   ₹ {Number(booking.status === 'Cancelled' ? 0 : booking.pending_amount).toLocaleString('en-IN')}
+                  {Number(booking.pending_amount) <= 0 && ' (Nil)'}
                 </td>
               </tr>
             </tbody>

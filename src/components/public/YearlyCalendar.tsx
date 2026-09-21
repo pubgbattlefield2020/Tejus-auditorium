@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { PublicSlot, DateAvailability, Booking } from '@/types';
 import { DateDetailsModal } from './DateDetailsModal';
 import { AdminDayDrawer } from '@/components/admin/AdminDayDrawer';
-import { getTodayISTString } from '@/lib/time-utils';
+import { getTodayISTString, calculateDateAvailability } from '@/lib/time-utils';
 
 interface YearlyCalendarProps {
   isAdmin?: boolean;
@@ -115,56 +115,7 @@ export const YearlyCalendar: React.FC<YearlyCalendarProps> = ({
   const weekdays = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   const getDateAvailability = (dateStr: string): DateAvailability => {
-    const daySlots = slots.filter((s) => s.programme_date === dateStr);
-    const morningSlots = daySlots.filter((s) => s.slot_period === 'Morning');
-    const eveningSlots = daySlots.filter((s) => s.slot_period === 'Evening');
-
-    const isMorningFull =
-      morningSlots.some((s) => s.auditorium_area === 'Full Auditorium') ||
-      (morningSlots.some((s) => s.auditorium_area === 'Ground Floor') &&
-        morningSlots.some((s) => s.auditorium_area === '1st Floor'));
-
-    const isEveningFull =
-      eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium') ||
-      (eveningSlots.some((s) => s.auditorium_area === 'Ground Floor') &&
-        eveningSlots.some((s) => s.auditorium_area === '1st Floor'));
-
-    let status: 'available' | 'single_slot' | 'fully_booked' = 'available';
-    if (daySlots.length >= 2) {
-      status = 'fully_booked';
-    } else if (daySlots.length === 1) {
-      status = 'single_slot';
-    }
-
-    const morningDetails = {
-      hasGroundFloor: morningSlots.some((s) => s.auditorium_area === 'Ground Floor'),
-      hasFirstFloor: morningSlots.some((s) => s.auditorium_area === '1st Floor'),
-      hasFullAuditorium: morningSlots.some((s) => s.auditorium_area === 'Full Auditorium'),
-      isFullyBooked: isMorningFull,
-      isPartiallyBooked: morningSlots.length > 0 && !isMorningFull,
-      slots: morningSlots,
-    };
-
-    const eveningDetails = {
-      hasGroundFloor: eveningSlots.some((s) => s.auditorium_area === 'Ground Floor'),
-      hasFirstFloor: eveningSlots.some((s) => s.auditorium_area === '1st Floor'),
-      hasFullAuditorium: eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium'),
-      isFullyBooked: isEveningFull,
-      isPartiallyBooked: eveningSlots.length > 0 && !isEveningFull,
-      slots: eveningSlots,
-    };
-
-    return {
-      date: dateStr,
-      hasMorningBooking: morningSlots.length > 0,
-      hasEveningBooking: eveningSlots.length > 0,
-      morningDetails,
-      eveningDetails,
-      morningSlot: morningSlots[0] || null,
-      eveningSlot: eveningSlots[0] || null,
-      allSlots: daySlots,
-      status,
-    };
+    return calculateDateAvailability(dateStr, slots);
   };
 
   const handleMonthCardClick = (monthIndex: number) => {

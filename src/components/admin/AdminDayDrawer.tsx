@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Plus, Edit, FileText, Trash2, Calendar, Clock, User, Phone, DollarSign } from 'lucide-react';
+import { X, Plus, Edit, FileText, Trash2, Calendar, Clock, User, Phone, DollarSign, CheckCircle2 } from 'lucide-react';
 import { Booking } from '@/types';
 import { formatDateReadable, formatTime12Hour } from '@/lib/time-utils';
 
@@ -14,6 +14,7 @@ interface AdminDayDrawerProps {
   onEditBooking: (booking: Booking) => void;
   onReceiptClick: (booking: Booking) => void;
   onDeleteBooking: (booking: Booking) => void;
+  onBalancePaidClick?: (booking: Booking) => void;
 }
 
 export const AdminDayDrawer: React.FC<AdminDayDrawerProps> = ({
@@ -25,6 +26,7 @@ export const AdminDayDrawer: React.FC<AdminDayDrawerProps> = ({
   onEditBooking,
   onReceiptClick,
   onDeleteBooking,
+  onBalancePaidClick,
 }) => {
   if (!isOpen || !dateStr) return null;
 
@@ -119,11 +121,17 @@ export const AdminDayDrawer: React.FC<AdminDayDrawerProps> = ({
                     <div className="text-xs text-slate-500 mt-1">
                       Event: <span className="font-semibold text-slate-800">{b.programme_type}</span> ({b.ac_type})
                     </div>
-                    <div className="text-xs font-bold text-slate-900 mt-1">
-                      Total: ₹{Number(b.total_amount).toLocaleString('en-IN')}{' '}
-                      <span className="font-semibold text-amber-700 font-mono">
-                        (Pending: ₹{Number(b.pending_amount).toLocaleString('en-IN')})
-                      </span>
+                    <div className="text-xs font-bold text-slate-900 mt-1 flex items-center flex-wrap gap-1.5">
+                      <span>Total: ₹{Number(b.total_amount).toLocaleString('en-IN')}</span>
+                      {Number(b.pending_amount) > 0 ? (
+                        <span className="font-semibold text-amber-700 font-mono">
+                          (Pending: ₹{Number(b.pending_amount).toLocaleString('en-IN')})
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                          ✓ Paid in Full
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -139,6 +147,18 @@ export const AdminDayDrawer: React.FC<AdminDayDrawerProps> = ({
                     {b.status}
                   </span>
                 </div>
+
+                {/* Balance Paid Quick Action Button */}
+                {Number(b.pending_amount) > 0 && b.status !== 'Cancelled' && onBalancePaidClick && (
+                  <button
+                    type="button"
+                    onClick={() => onBalancePaidClick(b)}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 mb-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-sm shadow-emerald-500/20 active:scale-98 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Balance Paid (Collect ₹{Number(b.pending_amount).toLocaleString('en-IN')})</span>
+                  </button>
+                )}
 
                 {/* Big Action Buttons */}
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-200/60">

@@ -45,6 +45,11 @@ export interface SlotAreaDetails {
   isFullyBooked: boolean; // hasFullAuditorium || (hasGroundFloor && hasFirstFloor)
   isPartiallyBooked: boolean;
   slots: PublicSlot[];
+  groundFloorBlockedByBuffer?: boolean;
+  groundFloorAvailableFrom?: string;
+  firstFloorBlockedByBuffer?: boolean;
+  firstFloorAvailableFrom?: string;
+  bothFloorsAvailableFrom?: string;
 }
 
 export interface DateAvailability {

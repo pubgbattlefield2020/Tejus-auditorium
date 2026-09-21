@@ -29,6 +29,7 @@ import { ReceiptModal } from '@/components/admin/ReceiptModal';
 import { CustomerSearchModal } from '@/components/admin/CustomerSearchModal';
 import { TrashModal } from '@/components/admin/TrashModal';
 import { ActivityLogsModal } from '@/components/admin/ActivityLogsModal';
+import { BalancePaidModal } from '@/components/admin/BalancePaidModal';
 import { YearlyCalendar } from '@/components/public/YearlyCalendar';
 import { formatDateReadable, formatTime12Hour, getTodayISTString } from '@/lib/time-utils';
 import { syncBookingToGoogleSheets, syncAllBookingsToGoogleSheets } from '@/lib/google-sheets';
@@ -82,6 +83,9 @@ export default function AdminPage() {
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [isTrashModalOpen, setIsTrashModalOpen] = useState(false);
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
+
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [selectedBookingForBalance, setSelectedBookingForBalance] = useState<Booking | null>(null);
 
   // Check Auth & Redirect seamlessly
   useEffect(() => {
@@ -224,6 +228,63 @@ export default function AdminPage() {
   const handleOpenDayDrawer = (dateStr: string) => {
     setSelectedDrawerDate(dateStr);
     setIsDayDrawerOpen(true);
+  };
+
+  const handleOpenBalancePaid = (booking: Booking) => {
+    setSelectedBookingForBalance(booking);
+    setIsBalanceModalOpen(true);
+  };
+
+  const handleConfirmBalancePaid = async (booking: Booking) => {
+    try {
+      const balanceAmount = Number(booking.pending_amount ?? (Number(booking.total_amount) - Number(booking.advance_amount))) || 0;
+      const newAdvance = Number(booking.total_amount);
+
+      const { data, error } = await supabase
+        .from('bookings')
+        .update({
+          advance_amount: newAdvance,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', booking.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Activity log
+      await supabase.from('activity_logs').insert({
+        booking_id: booking.booking_id,
+        action: 'UPDATE',
+        admin_email: adminEmail,
+        details: {
+          action_type: 'BALANCE_PAID',
+          customer_name: booking.customer_name,
+          balance_paid: balanceAmount,
+          previous_advance: booking.advance_amount,
+          new_advance: newAdvance,
+          pending_amount: 0,
+        },
+      });
+
+      // Google Sheets sync
+      if (data) {
+        syncBookingToGoogleSheets('UPDATE', data as Booking);
+      }
+
+      showToast(
+        'success',
+        `Balance of ₹${balanceAmount.toLocaleString('en-IN')} marked as paid for ${booking.booking_id} (${booking.customer_name}).`,
+        'Balance Paid'
+      );
+
+      // Refresh admin data to recalculate stats and all views
+      await fetchAdminData();
+    } catch (err: any) {
+      console.error('Failed to mark balance paid:', err);
+      showToast('error', err.message || 'Failed to record balance payment. Please try again.', 'Error');
+      throw err;
+    }
   };
 
   const handleDeleteToTrash = async (booking: Booking) => {
@@ -508,6 +569,15 @@ export default function AdminPage() {
                       </td>
                       <td className="py-3 px-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {Number(b.pending_amount) > 0 && b.status !== 'Cancelled' && (
+                            <button
+                              onClick={() => handleOpenBalancePaid(b)}
+                              className="p-1.5 rounded-lg hover:bg-emerald-50 text-emerald-600 hover:text-emerald-700 transition-colors"
+                              title={`Mark Balance Paid (₹${Number(b.pending_amount).toLocaleString('en-IN')})`}
+                            >
+                              <CheckCircle2 className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => handleOpenReceipt(b)}
                             className="p-1.5 rounded-lg hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-colors"
@@ -553,6 +623,7 @@ export default function AdminPage() {
         onEditBooking={handleEditBooking}
         onReceiptClick={handleOpenReceipt}
         onDeleteBooking={handleDeleteToTrash}
+        onBalancePaidClick={handleOpenBalancePaid}
       />
 
       {/* Booking Form Modal */}
@@ -604,6 +675,14 @@ export default function AdminPage() {
         onClose={() => setIsLogsModalOpen(false)}
         onRestoreSuccess={() => fetchAdminData()}
         adminEmail={adminEmail}
+      />
+
+      {/* Balance Paid Confirmation Modal */}
+      <BalancePaidModal
+        isOpen={isBalanceModalOpen}
+        onClose={() => setIsBalanceModalOpen(false)}
+        booking={selectedBookingForBalance}
+        onConfirm={handleConfirmBalancePaid}
       />
     </div>
   );

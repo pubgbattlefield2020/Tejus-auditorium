@@ -1,4 +1,4 @@
-import { SlotPeriod, AuditoriumArea } from '@/types';
+import { SlotPeriod, AuditoriumArea, PublicSlot, SlotAreaDetails, DateAvailability } from '@/types';
 
 /**
  * Converts HH:mm or HH:mm:ss string to minutes from midnight
@@ -300,3 +300,120 @@ export function cleanMobileNumber(phone: string): string {
   if (!phone) return '';
   return phone.replace(/[^\d\+]/g, '');
 }
+
+/**
+ * Accurately calculates availability for a specific date given the list of public slots,
+ * taking into account floor combinations and mandatory 1-hour buffers that cross slot boundaries.
+ */
+export function calculateDateAvailability(dateStr: string, slots: PublicSlot[]): DateAvailability {
+  const daySlots = slots.filter((s) => s.programme_date === dateStr);
+  const morningSlots = daySlots.filter((s) => s.slot_period === 'Morning');
+  const eveningSlots = daySlots.filter((s) => s.slot_period === 'Evening');
+
+  // Direct Morning bookings
+  const morningHasGround = morningSlots.some((s) => s.auditorium_area === 'Ground Floor');
+  const morningHasFirst = morningSlots.some((s) => s.auditorium_area === '1st Floor');
+  const morningHasFull = morningSlots.some((s) => s.auditorium_area === 'Full Auditorium');
+  const isMorningFull = morningHasFull || (morningHasGround && morningHasFirst);
+
+  // Direct Evening bookings
+  let eveningHasGround = eveningSlots.some((s) => s.auditorium_area === 'Ground Floor');
+  let eveningHasFirst = eveningSlots.some((s) => s.auditorium_area === '1st Floor');
+  let eveningHasFull = eveningSlots.some((s) => s.auditorium_area === 'Full Auditorium');
+
+  // Buffer spillage from Morning into Evening (standard evening slot starts at 15:00 / 3:00 PM)
+  const bufferMinutes = 60;
+  const eveningStandardStart = 900; // 15:00 in minutes
+  const eveningStandardEnd = 1140; // 19:00 in minutes
+
+  let groundFloorBlockedByBuffer = false;
+  let groundFloorAvailableFrom: string | undefined = undefined;
+  let firstFloorBlockedByBuffer = false;
+  let firstFloorAvailableFrom: string | undefined = undefined;
+
+  for (const b of morningSlots) {
+    const bEnd = timeToMinutes(b.to_time);
+    const bBufferEnd = bEnd + bufferMinutes;
+
+    // If booking runs through the entire evening window (ends at or after 19:00)
+    if (bEnd >= eveningStandardEnd) {
+      if (b.auditorium_area === 'Full Auditorium') {
+        eveningHasFull = true;
+      } else if (b.auditorium_area === 'Ground Floor') {
+        eveningHasGround = true;
+      } else if (b.auditorium_area === '1st Floor') {
+        eveningHasFirst = true;
+      }
+      continue;
+    }
+
+    // If buffer pushes past 15:00
+    if (bBufferEnd > eveningStandardStart) {
+      const availTimeStr = formatTime12Hour(minutesToTimeString(bBufferEnd));
+      if (doAreasConflict('Ground Floor', b.auditorium_area) && !eveningHasGround && !eveningHasFull) {
+        groundFloorBlockedByBuffer = true;
+        groundFloorAvailableFrom = availTimeStr;
+      }
+      if (doAreasConflict('1st Floor', b.auditorium_area) && !eveningHasFirst && !eveningHasFull) {
+        firstFloorBlockedByBuffer = true;
+        firstFloorAvailableFrom = availTimeStr;
+      }
+    }
+  }
+
+  const isEveningFull = eveningHasFull || (eveningHasGround && eveningHasFirst);
+  const bothFloorsBlockedByBuffer = groundFloorBlockedByBuffer && firstFloorBlockedByBuffer;
+  const bothFloorsAvailableFrom = bothFloorsBlockedByBuffer ? groundFloorAvailableFrom : undefined;
+
+  const isEveningPartiallyBooked =
+    !isEveningFull &&
+    (eveningSlots.length > 0 || groundFloorBlockedByBuffer || firstFloorBlockedByBuffer);
+
+  const morningDetails: SlotAreaDetails = {
+    hasGroundFloor: morningHasGround,
+    hasFirstFloor: morningHasFirst,
+    hasFullAuditorium: morningHasFull,
+    isFullyBooked: isMorningFull,
+    isPartiallyBooked: morningSlots.length > 0 && !isMorningFull,
+    slots: morningSlots,
+  };
+
+  const eveningDetails: SlotAreaDetails = {
+    hasGroundFloor: eveningHasGround,
+    hasFirstFloor: eveningHasFirst,
+    hasFullAuditorium: eveningHasFull,
+    isFullyBooked: isEveningFull,
+    isPartiallyBooked: isEveningPartiallyBooked,
+    slots: eveningSlots,
+    groundFloorBlockedByBuffer,
+    groundFloorAvailableFrom,
+    firstFloorBlockedByBuffer,
+    firstFloorAvailableFrom,
+    bothFloorsAvailableFrom,
+  };
+
+  const isDayFullyBooked = isMorningFull && isEveningFull;
+  const isDayPartiallyBooked =
+    !isDayFullyBooked &&
+    (daySlots.length > 0 || morningDetails.isPartiallyBooked || eveningDetails.isPartiallyBooked);
+
+  let status: 'available' | 'single_slot' | 'fully_booked' = 'available';
+  if (isDayFullyBooked) {
+    status = 'fully_booked';
+  } else if (isDayPartiallyBooked) {
+    status = 'single_slot';
+  }
+
+  return {
+    date: dateStr,
+    hasMorningBooking: morningSlots.length > 0,
+    hasEveningBooking: eveningSlots.length > 0 || eveningHasGround || eveningHasFirst || eveningHasFull,
+    morningDetails,
+    eveningDetails,
+    morningSlot: morningSlots[0] || null,
+    eveningSlot: eveningSlots[0] || null,
+    allSlots: daySlots,
+    status,
+  };
+}
+

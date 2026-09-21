@@ -117,7 +117,9 @@ export const DateDetailsModal: React.FC<DateDetailsModalProps> = ({
                     {formatTime12Hour(dateInfo.morningSlot.from_time)} – {formatTime12Hour(dateInfo.morningSlot.to_time)}
                   </span>
                 ) : (
-                  <span className="text-emerald-600 font-medium">9:00 AM – 1:00 PM</span>
+                  <span className={dateInfo.morningDetails?.isPartiallyBooked ? 'text-amber-700 font-medium' : 'text-emerald-600 font-medium'}>
+                    9:00 AM – 1:00 PM
+                  </span>
                 )}
               </div>
               {/* Floor Status Description */}
@@ -161,13 +163,27 @@ export const DateDetailsModal: React.FC<DateDetailsModalProps> = ({
                     {formatTime12Hour(dateInfo.eveningSlot.from_time)} – {formatTime12Hour(dateInfo.eveningSlot.to_time)}
                   </span>
                 ) : (
-                  <span className="text-emerald-600 font-medium">3:00 PM – 7:00 PM</span>
+                  <span className={dateInfo.eveningDetails?.isPartiallyBooked ? 'text-amber-700 font-medium' : 'text-emerald-600 font-medium'}>
+                    3:00 PM – 7:00 PM
+                  </span>
                 )}
               </div>
               {/* Floor Status Description */}
               <div className="text-[11px] font-medium text-slate-600 mt-1">
                 {dateInfo.eveningDetails?.isFullyBooked ? (
                   <span className="text-rose-600 font-semibold">Both Floors Booked</span>
+                ) : dateInfo.eveningDetails?.bothFloorsAvailableFrom ? (
+                  <span>
+                    Both Floors Available from <strong className="text-amber-700 font-semibold">{dateInfo.eveningDetails.bothFloorsAvailableFrom}</strong> (1h buffer)
+                  </span>
+                ) : dateInfo.eveningDetails?.groundFloorBlockedByBuffer ? (
+                  <span>
+                    <strong className="text-emerald-700">1st Floor Available</strong> • Ground Floor from <strong className="text-amber-800 font-semibold">{dateInfo.eveningDetails.groundFloorAvailableFrom}</strong> (1h buffer)
+                  </span>
+                ) : dateInfo.eveningDetails?.firstFloorBlockedByBuffer ? (
+                  <span>
+                    <strong className="text-emerald-700">Ground Floor Available</strong> • 1st Floor from <strong className="text-amber-800 font-semibold">{dateInfo.eveningDetails.firstFloorAvailableFrom}</strong> (1h buffer)
+                  </span>
                 ) : dateInfo.eveningDetails?.hasGroundFloor ? (
                   <span>Ground Floor Booked • <strong className="text-emerald-700">1st Floor Available</strong></span>
                 ) : dateInfo.eveningDetails?.hasFirstFloor ? (

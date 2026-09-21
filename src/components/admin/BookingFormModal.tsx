@@ -951,12 +951,30 @@ export const BookingFormModal: React.FC<BookingFormModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Pending Balance (₹)
-                </label>
-                <div className="w-full px-3 py-2 bg-amber-50 border border-amber-200 rounded-xl text-sm font-bold text-amber-900 font-mono flex items-center justify-between">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-slate-700">
+                    Pending Balance (₹)
+                  </label>
+                  {pendingAmount > 0 && typeof totalAmount === 'number' && totalAmount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAdvanceAmount(totalAmount)}
+                      className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 bg-emerald-100/70 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                      title="Set advance equal to total amount (fully paid)"
+                    >
+                      ✓ Pay Balance (Full)
+                    </button>
+                  )}
+                </div>
+                <div className={`w-full px-3 py-2 border rounded-xl text-sm font-bold font-mono flex items-center justify-between ${
+                  pendingAmount > 0
+                    ? 'bg-amber-50 border-amber-200 text-amber-900'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                }`}>
                   <span>₹ {pendingAmount.toLocaleString('en-IN')}</span>
-                  <span className="text-[10px] text-amber-700 font-semibold">(Auto)</span>
+                  <span className={`text-[10px] font-semibold ${pendingAmount > 0 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                    {pendingAmount > 0 ? '(Auto)' : '✓ Paid in Full'}
+                  </span>
                 </div>
               </div>
             </div>

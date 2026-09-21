@@ -148,8 +148,14 @@ export const CustomerSearchModal: React.FC<CustomerSearchModalProps> = ({
 
                 <div className="text-xs text-slate-600 font-medium mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                   <span>📅 {formatDateReadable(b.programme_date)}</span>
-                  <span>⏰ {formatTime12Hour(b.from_time)} – {formatTime12Hour(b.to_time)}</span>
-                  <span>💰 Total: ₹{Number(b.total_amount).toLocaleString('en-IN')} (Pending: ₹{Number(b.pending_amount).toLocaleString('en-IN')})</span>
+                  <span>
+                    💰 Total: ₹{Number(b.total_amount).toLocaleString('en-IN')}{' '}
+                    {Number(b.pending_amount) > 0 ? (
+                      <span className="text-amber-700 font-bold">(Pending: ₹{Number(b.pending_amount).toLocaleString('en-IN')})</span>
+                    ) : (
+                      <span className="text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 text-[10px]">✓ Paid in Full</span>
+                    )}
+                  </span>
                 </div>
               </div>
 
